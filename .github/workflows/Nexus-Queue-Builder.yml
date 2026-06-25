@@ -1,0 +1,11 @@
+name: Nexus Queue Builder
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-queue:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo "Nexus queue builder placeholder"

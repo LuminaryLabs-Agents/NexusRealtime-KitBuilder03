@@ -1,0 +1,283 @@
+name: Nexus Turn Agent
+
+on:
+  workflow_dispatch:
+    inputs:
+      model:
+        description: "NVIDIA-hosted model name"
+        required: false
+        default: "nvidia/nemotron-3-ultra-550b-a55b"
+      max_turns:
+        description: "Maximum agent loop turns for this run"
+        required: false
+        default: "4"
+      run_prompt:
+        description: "Optional extra instruction for this run"
+        required: false
+        default: "Advance the repository one bounded step toward the goal."
+  push:
+    branches:
+      - main
+    paths:
+      - ".agent/goal.md"
+      - ".agent/workflow.md"
+      - ".github/workflows/Nexus-Turn-Agent.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nexus-turn-agent
+  cancel-in-progress: false
+
+jobs:
+  nexus-turn-agent:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install openai
+
+      - name: Run bounded Nexus turn loop
+        env:
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          NVIDIA_MODEL: ${{ github.event.inputs.model }}
+          MAX_TURNS: ${{ github.event.inputs.max_turns }}
+          RUN_PROMPT: ${{ github.event.inputs.run_prompt }}
+          GOAL_PATH: .agent/goal.md
+          WORKFLOW_PATH: .agent/workflow.md
+          STATE_PATH: .agent/state.json
+          ALLOWED_PREFIXES: .agent/,docs/,src/,generated/
+        run: |
+          python <<'PY'
+          from datetime import datetime, timezone
+          from pathlib import Path
+          import json
+          import os
+          import re
+
+          from openai import OpenAI
+
+          def read_text(path: str, default: str = "") -> str:
+              p = Path(path)
+              return p.read_text(encoding="utf-8") if p.exists() else default
+
+          def write_text(path: str, content: str) -> None:
+              p = Path(path)
+              p.parent.mkdir(parents=True, exist_ok=True)
+              p.write_text(content, encoding="utf-8")
+
+          def append_text(path: str, content: str) -> None:
+              p = Path(path)
+              p.parent.mkdir(parents=True, exist_ok=True)
+              old = p.read_text(encoding="utf-8") if p.exists() else ""
+              p.write_text(old + content, encoding="utf-8")
+
+          def extract(tag: str, raw: str, required: bool = True) -> str:
+              matches = re.findall(rf"<{tag}>\s*(.*?)\s*</{tag}>", raw, flags=re.DOTALL | re.IGNORECASE)
+              if not matches:
+                  if required:
+                      raise RuntimeError(f"Missing <{tag}> block")
+                  return ""
+              if len(matches) > 1:
+                  raise RuntimeError(f"Expected one <{tag}> block, found {len(matches)}")
+              return matches[0].strip()
+
+          def safe_path(path: str, allowed_prefixes: list[str]) -> Path:
+              clean = path.strip().replace("\\", "/")
+              if clean.startswith("/") or ".." in Path(clean).parts:
+                  raise RuntimeError(f"Unsafe path: {path}")
+              if not any(clean == prefix.rstrip("/") or clean.startswith(prefix) for prefix in allowed_prefixes):
+                  raise RuntimeError(f"Path outside allowed prefixes: {path}")
+              if clean.startswith(".github/"):
+                  raise RuntimeError("The turn loop may not edit workflow files")
+              return Path(clean)
+
+          api_key = os.environ.get("NVIDIA_API_KEY", "").strip()
+          if not api_key:
+              raise SystemExit("Missing NVIDIA_API_KEY secret.")
+
+          model = os.environ.get("NVIDIA_MODEL", "").strip() or "nvidia/nemotron-3-ultra-550b-a55b"
+          run_prompt = os.environ.get("RUN_PROMPT", "").strip() or "Advance the repository one bounded step toward the goal."
+
+          try:
+              max_turns = int(os.environ.get("MAX_TURNS", "4") or "4")
+          except ValueError:
+              max_turns = 4
+          max_turns = max(1, min(max_turns, 12))
+
+          goal_path = os.environ.get("GOAL_PATH", ".agent/goal.md")
+          workflow_path = os.environ.get("WORKFLOW_PATH", ".agent/workflow.md")
+          state_path = os.environ.get("STATE_PATH", ".agent/state.json")
+          allowed_prefixes = [p for p in os.environ.get("ALLOWED_PREFIXES", ".agent/,docs/,src/,generated/").split(",") if p]
+
+          goal = read_text(goal_path, "# Goal\n\nNo goal file found.")
+          workflow = read_text(workflow_path, "# Workflow\n\nNo workflow file found.")
+          state_raw = read_text(state_path, "{}")
+          try:
+              state = json.loads(state_raw)
+          except json.JSONDecodeError:
+              state = {"status": "state_json_invalid", "raw_state": state_raw[:2000]}
+
+          run_id = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%SZ")
+          run_dir = Path(".agent") / "runs" / run_id
+          run_dir.mkdir(parents=True, exist_ok=True)
+
+          client = OpenAI(base_url="https://integrate.api.nvidia.com/v1", api_key=api_key)
+          transcript = []
+          stopped = False
+
+          for turn in range(1, max_turns + 1):
+              recent = "\n\n".join(transcript[-3:])
+              agent_prompt = f"""
+              You are Nexus Turn Agent, a bounded repo-building loop.
+
+              Current run id: {run_id}
+              Turn: {turn} of {max_turns}
+
+              Goal file:
+              {goal}
+
+              Workflow file:
+              {workflow}
+
+              Current state JSON:
+              {json.dumps(state, indent=2)}
+
+              Extra instruction for this run:
+              {run_prompt}
+
+              Recent turn transcript:
+              {recent}
+
+              Return exactly one tool decision using this contract:
+
+              <decision>THINK | WRITE_FILE | APPEND_FILE | STOP</decision>
+              <summary>brief operational summary, not hidden reasoning</summary>
+              <path>only for WRITE_FILE or APPEND_FILE</path>
+              <content>only for WRITE_FILE or APPEND_FILE</content>
+              <next_state>{{valid JSON object}}</next_state>
+
+              Boundaries:
+              - Allowed write prefixes: {', '.join(allowed_prefixes)}
+              - Do not edit .github workflows.
+              - Make one bounded move only.
+              - Prefer artifacts, plans, small source files, docs, launcher improvements, or reusable game modules.
+              - Stop when the run has produced a coherent checkpoint.
+              """.strip()
+
+              completion = client.chat.completions.create(
+                  model=model,
+                  messages=[
+                      {"role": "system", "content": "You are a repo turn agent. Obey the exact XML-like tool contract. Do not include markdown fences outside tagged content."},
+                      {"role": "user", "content": agent_prompt},
+                  ],
+                  temperature=0.65,
+                  top_p=0.95,
+                  max_tokens=4096,
+                  extra_body={"chat_template_kwargs": {"enable_thinking": True}, "reasoning_budget": 4096},
+                  stream=True,
+              )
+
+              raw_parts = []
+              for chunk in completion:
+                  if not chunk.choices:
+                      continue
+                  delta = chunk.choices[0].delta
+                  if delta.content is not None:
+                      print(delta.content, end="")
+                      raw_parts.append(delta.content)
+
+              raw = "".join(raw_parts).strip()
+              if not raw:
+                  raise SystemExit("Model returned no content")
+
+              decision = extract("decision", raw).upper()
+              summary = extract("summary", raw)
+              next_state_raw = extract("next_state", raw)
+              try:
+                  next_state = json.loads(next_state_raw)
+              except json.JSONDecodeError as exc:
+                  raise SystemExit(f"next_state was not valid JSON: {exc}")
+
+              artifact = [
+                  f"# Nexus Turn {turn}",
+                  "",
+                  f"Run: `{run_id}`",
+                  f"Decision: `{decision}`",
+                  "",
+                  "## Summary",
+                  "",
+                  summary,
+                  "",
+                  "## Raw Contract Output",
+                  "",
+                  "```txt",
+                  raw,
+                  "```",
+                  "",
+              ]
+
+              if decision in {"WRITE_FILE", "APPEND_FILE"}:
+                  path = extract("path", raw)
+                  content = extract("content", raw)
+                  target = safe_path(path, allowed_prefixes)
+                  if decision == "WRITE_FILE":
+                      write_text(str(target), content + "\n")
+                  else:
+                      append_text(str(target), content + "\n")
+                  artifact.extend(["## Applied File", "", f"`{target}`", ""])
+              elif decision == "THINK":
+                  pass
+              elif decision == "STOP":
+                  stopped = True
+              else:
+                  raise SystemExit(f"Unsupported decision: {decision}")
+
+              state = next_state
+              state["latest_run_id"] = run_id
+              state["latest_turn"] = turn
+              state["latest_decision"] = decision
+              state["latest_summary"] = summary
+              state["status"] = "stopped" if stopped else "running"
+
+              write_text(str(run_dir / f"turn-{turn:03d}.md"), "\n".join(artifact))
+              transcript.append(f"Turn {turn}: {decision} - {summary}")
+
+              if stopped:
+                  break
+
+          state["turn_count"] = int(state.get("turn_count", 0) or 0) + len(transcript)
+          state["status"] = "completed"
+          write_text(state_path, json.dumps(state, indent=2) + "\n")
+          write_text(".agent/LATEST.md", "# Latest Nexus Turn Agent Run\n\n" + "\n".join(f"- {line}" for line in transcript) + "\n")
+
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary_file:
+              summary_file.write("# Nexus Turn Agent\n\n")
+              summary_file.write(f"Run id: `{run_id}`\n\n")
+              summary_file.write("## Turns\n\n")
+              for line in transcript:
+                  summary_file.write(f"- {line}\n")
+          PY
+
+      - name: Commit turn artifacts
+        run: |
+          git config user.name "nexus-turn-agent"
+          git config user.email "nexus-turn-agent@users.noreply.github.com"
+          git add .agent/ docs/ src/ generated/
+          if git diff --cached --quiet; then
+            echo "No turn changes to commit."
+            exit 0
+          fi
+          git commit -m "chore: run Nexus turn agent"
+          git push

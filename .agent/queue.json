@@ -1,0 +1,164 @@
+{
+  "version": 1,
+  "active_goal_id": null,
+  "run_policy": {
+    "max_goals_per_run": 7,
+    "max_turns_per_goal": 6,
+    "max_total_turns": 30,
+    "commit_strategy": "single_commit_at_end"
+  },
+  "goals": [
+    {
+      "id": "agent-harness-foundation",
+      "status": "queued",
+      "priority": 1,
+      "title": "Stabilize the agent harness foundation",
+      "description": "Create the queue, tools, schemas, and run artifact conventions needed for bounded repo-building turns.",
+      "success_criteria": [
+        ".agent/queue.json exists",
+        ".agent/tools.json exists",
+        ".agent/schemas/turn-request.schema.json exists",
+        ".agent/schemas/turn-response.schema.json exists"
+      ],
+      "required_tools": [
+        "queue_check",
+        "state_check"
+      ],
+      "progress": {
+        "completed_steps": [],
+        "next_step": "create missing agent contract files"
+      }
+    },
+    {
+      "id": "tool-runner-foundation",
+      "status": "queued",
+      "priority": 2,
+      "title": "Create deterministic repo tool runner",
+      "description": "Add Python tools that validate queue state, repo policy, launcher files, and generated JavaScript.",
+      "success_criteria": [
+        "agent_tools/run_tools.py exists",
+        "agent_tools/queue_check.py exists",
+        "agent_tools/state_check.py exists",
+        "agent_tools/launcher_manifest.py exists",
+        "agent_tools/repo_policy.py exists"
+      ],
+      "required_tools": [
+        "queue_check",
+        "state_check",
+        "repo_policy_check"
+      ],
+      "progress": {
+        "completed_steps": [],
+        "next_step": "create agent_tools package"
+      }
+    },
+    {
+      "id": "launcher-quality-pass",
+      "status": "queued",
+      "priority": 3,
+      "title": "Improve the Pages launcher ladder",
+      "description": "Refine the launcher as a durable gallery of generated game attempts.",
+      "success_criteria": [
+        "docs/index.html exists",
+        "docs/launcher.css exists",
+        "docs/games.json exists",
+        "launcher manifest check passes"
+      ],
+      "required_tools": [
+        "launcher_manifest_check",
+        "html_smoke_check"
+      ],
+      "progress": {
+        "completed_steps": [],
+        "next_step": "inspect and improve launcher structure"
+      }
+    },
+    {
+      "id": "game-runtime-core",
+      "status": "queued",
+      "priority": 4,
+      "title": "Build reusable browser game runtime core",
+      "description": "Create modular runtime files for state, input, rendering, and game loop execution.",
+      "success_criteria": [
+        "src/core/state.js exists",
+        "src/core/input.js exists",
+        "src/core/render.js exists",
+        "src/core/loop.js exists",
+        "JavaScript syntax checks pass"
+      ],
+      "required_tools": [
+        "js_syntax_check"
+      ],
+      "progress": {
+        "completed_steps": [],
+        "next_step": "create src/core/state.js"
+      }
+    },
+    {
+      "id": "first-layered-demo-game",
+      "status": "queued",
+      "priority": 5,
+      "title": "Create the first layered demo game",
+      "description": "Use the runtime ideas to create a playable static demo under docs/games/layered-demo/.",
+      "success_criteria": [
+        "docs/games/layered-demo/index.html exists",
+        "docs/games/layered-demo/style.css exists",
+        "docs/games/layered-demo/game.js exists",
+        "JavaScript syntax checks pass"
+      ],
+      "required_tools": [
+        "js_syntax_check",
+        "launcher_manifest_check"
+      ],
+      "progress": {
+        "completed_steps": [],
+        "next_step": "design first playable layered demo"
+      }
+    },
+    {
+      "id": "test-and-smoke-validation",
+      "status": "queued",
+      "priority": 6,
+      "title": "Strengthen test and smoke validation",
+      "description": "Ensure the deterministic tool layer catches queue, state, launcher, HTML, and JavaScript problems.",
+      "success_criteria": [
+        "queue check passes",
+        "state check passes",
+        "repo policy check passes",
+        "HTML smoke check passes",
+        "JavaScript syntax checks pass"
+      ],
+      "required_tools": [
+        "queue_check",
+        "state_check",
+        "repo_policy_check",
+        "html_smoke_check",
+        "js_syntax_check"
+      ],
+      "progress": {
+        "completed_steps": [],
+        "next_step": "run and repair deterministic tool checks"
+      }
+    },
+    {
+      "id": "game-generation-archive-polish",
+      "status": "queued",
+      "priority": 7,
+      "title": "Polish generated game archive artifacts",
+      "description": "Make generated artifacts and the gallery manifest easier to inspect and reuse.",
+      "success_criteria": [
+        "generated artifacts are documented",
+        "latest game run metadata is readable",
+        "launcher links remain valid"
+      ],
+      "required_tools": [
+        "launcher_manifest_check",
+        "repo_policy_check"
+      ],
+      "progress": {
+        "completed_steps": [],
+        "next_step": "document and polish archive metadata"
+      }
+    }
+  ]
+}

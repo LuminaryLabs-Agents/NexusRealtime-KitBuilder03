@@ -11,6 +11,9 @@ on:
         description: "NVIDIA-hosted model name"
         required: false
         default: "nvidia/nemotron-3-ultra-550b-a55b"
+  push:
+    branches:
+      - main
 
 permissions:
   contents: write
@@ -62,8 +65,8 @@ jobs:
           if not api_key:
               raise SystemExit("Missing NVIDIA_API_KEY secret.")
 
-          model = os.environ.get("NVIDIA_MODEL", "nvidia/nemotron-3-ultra-550b-a55b").strip()
-          game_prompt = os.environ.get("GAME_PROMPT", "").strip() or "Build a tiny polished keyboard-playable browser game."
+          model = os.environ.get("NVIDIA_MODEL", "").strip() or "nvidia/nemotron-3-ultra-550b-a55b"
+          game_prompt = os.environ.get("GAME_PROMPT", "").strip() or "Build a tiny polished keyboard-playable browser game about a living language model inside a GitHub Pages arcade launcher."
 
           contract = """
           Return exactly three blocks and nothing else:

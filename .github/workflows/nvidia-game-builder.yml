@@ -1,0 +1,213 @@
+name: NVIDIA Game Builder
+
+on:
+  workflow_dispatch:
+    inputs:
+      game_prompt:
+        description: "Prompt for the browser game"
+        required: false
+        default: "Build a tiny polished canvas arcade game about a living language model collecting glowing tokens inside a Git repository. Make it keyboard playable, visually clear, and self-contained."
+      model:
+        description: "NVIDIA-hosted model name"
+        required: false
+        default: "nvidia/nemotron-3-ultra-550b-a55b"
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: nvidia-game-builder
+  cancel-in-progress: false
+
+environment:
+  name: github-pages
+  url: ${{ steps.deploy.outputs.page_url }}
+
+jobs:
+  build-game:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install openai
+
+      - name: Generate strict-contract browser game
+        env:
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          GAME_PROMPT: ${{ github.event.inputs.game_prompt }}
+          NVIDIA_MODEL: ${{ github.event.inputs.model }}
+        run: |
+          python <<'PY'
+          from datetime import datetime, timezone
+          from pathlib import Path
+          import os
+          import re
+
+          from openai import OpenAI
+
+          api_key = os.environ.get("NVIDIA_API_KEY", "").strip()
+          if not api_key:
+              raise SystemExit("Missing NVIDIA_API_KEY secret.")
+
+          model = os.environ.get("NVIDIA_MODEL", "nvidia/nemotron-3-ultra-550b-a55b").strip()
+          game_prompt = os.environ.get("GAME_PROMPT", "").strip() or "Build a tiny polished keyboard-playable browser game."
+
+          required_contract = """
+          Return exactly three blocks and nothing else:
+
+          <index_html>
+          COMPLETE_HTML_DOCUMENT_HERE
+          </index_html>
+
+          <style_css>
+          COMPLETE_CSS_HERE
+          </style_css>
+
+          <game_js>
+          COMPLETE_JAVASCRIPT_HERE
+          </game_js>
+          """.strip()
+
+          prompt = f"""
+          Build a complete small static browser game for GitHub Pages.
+
+          User request:
+          {game_prompt}
+
+          Required output contract:
+          {required_contract}
+
+          Rules:
+          - index_html must be a complete HTML document.
+          - index_html must load ./style.css and ./game.js.
+          - style_css must contain all styling.
+          - game_js must contain all game logic.
+          - Use Canvas 2D or plain DOM only.
+          - Include keyboard controls, visible instructions, score/state, and restart behavior.
+          - Do not include markdown fences or explanations.
+          - Do not use remote libraries or assets.
+          """.strip()
+
+          client = OpenAI(
+              base_url="https://integrate.api.nvidia.com/v1",
+              api_key=api_key,
+          )
+
+          completion = client.chat.completions.create(
+              model=model,
+              messages=[
+                  {
+                      "role": "system",
+                      "content": "You generate static browser game files and obey exact tagged output contracts.",
+                  },
+                  {"role": "user", "content": prompt},
+              ],
+              temperature=0.85,
+              top_p=0.95,
+              max_tokens=8192,
+              extra_body={
+                  "chat_template_kwargs": {"enable_thinking": True},
+                  "reasoning_budget": 8192,
+              },
+              stream=True,
+          )
+
+          parts = []
+          for chunk in completion:
+              if not chunk.choices:
+                  continue
+              delta = chunk.choices[0].delta
+              if delta.content is not None:
+                  print(delta.content, end="")
+                  parts.append(delta.content)
+
+          raw = "".join(parts).strip()
+          if not raw:
+              raise SystemExit("The model returned no content.")
+
+          def extract(tag: str) -> str:
+              matches = re.findall(rf"<{tag}>\s*(.*?)\s*</{tag}>", raw, flags=re.DOTALL | re.IGNORECASE)
+              if len(matches) != 1:
+                  raise SystemExit(f"Expected exactly one {tag} block, found {len(matches)}.")
+              return matches[0].strip()
+
+          index_html = extract("index_html")
+          style_css = extract("style_css")
+          game_js = extract("game_js")
+
+          if "style.css" not in index_html or "game.js" not in index_html:
+              raise SystemExit("index_html must reference ./style.css and ./game.js.")
+          if "<html" not in index_html.lower() or "</html>" not in index_html.lower():
+              raise SystemExit("index_html must be a complete HTML document.")
+          if len(index_html) < 200 or len(style_css) < 50 or len(game_js) < 200:
+              raise SystemExit("Generated files are too small to be accepted.")
+
+          now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%SZ")
+          safe_model = re.sub(r"[^A-Za-z0-9_.-]+", "-", model).strip("-")
+          expected_url = "https://luminarylabs-agents.github.io/NexusLiveLLM/"
+
+          docs = Path("docs")
+          history = Path("generated") / "games" / f"{now}-{safe_model}"
+          docs.mkdir(parents=True, exist_ok=True)
+          history.mkdir(parents=True, exist_ok=True)
+
+          for base in (docs, history):
+              (base / "index.html").write_text(index_html + "\n", encoding="utf-8")
+              (base / "style.css").write_text(style_css + "\n", encoding="utf-8")
+              (base / "game.js").write_text(game_js + "\n", encoding="utf-8")
+
+          (history / "prompt.md").write_text(
+              f"# Game Prompt\n\nGenerated at: `{now}`\n\nModel: `{model}`\n\n## Prompt\n\n{game_prompt}\n",
+              encoding="utf-8",
+          )
+          Path("generated").mkdir(exist_ok=True)
+          Path("generated/latest-game-url.md").write_text(f"# Latest Game URL\n\n{expected_url}\n", encoding="utf-8")
+          Path("generated/latest-game-run.md").write_text(
+              f"# Latest Game Run\n\nGenerated at: `{now}`\n\nModel: `{model}`\n\nExpected URL: {expected_url}\n\n## Prompt\n\n{game_prompt}\n",
+              encoding="utf-8",
+          )
+
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
+              summary.write("# NVIDIA Game Builder\n\n")
+              summary.write(f"Expected URL after deployment: {expected_url}\n")
+          PY
+
+      - name: Commit generated game files
+        run: |
+          git config user.name "nvidia-game-bot"
+          git config user.email "nvidia-game-bot@users.noreply.github.com"
+          git add docs/ generated/
+          if git diff --cached --quiet; then
+            echo "No generated game changes to commit."
+            exit 0
+          fi
+          git commit -m "chore: generate NVIDIA browser game"
+          git push
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4
+
+      - name: Print deployed URL
+        run: |
+          echo "Game deployed to: ${{ steps.deploy.outputs.page_url }}"

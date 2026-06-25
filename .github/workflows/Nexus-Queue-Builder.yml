@@ -3,9 +3,14 @@ name: Nexus Queue Builder
 on:
   workflow_dispatch:
 
+env:
+  NVIDIA_SECRET_NAME: NVIDIA_API_KEY
+
 jobs:
   build-queue:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: echo "Nexus queue builder placeholder"
+      - run: echo "Nexus queue builder"
+        env:
+          NVIDIA_API_KEY: ${{ secrets[env.NVIDIA_SECRET_NAME] }}

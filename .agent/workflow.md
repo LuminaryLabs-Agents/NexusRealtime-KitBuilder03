@@ -1,96 +1,96 @@
 # Nexus Turn Agent Workflow
 
-The workflow is intentionally small: the loop is the agent.
+This repository is a YAML-driven LLM build harness template.
 
-Each turn reads:
+The system is split into two harnesses:
 
-1. `.agent/goal.md`
-2. `.agent/workflow.md`
-3. `.agent/state.json`
-4. recent `.agent/runs/` artifacts when present
+1. `Nexus-Queue-Builder.yml` turns a high-level idea into `.agent/queue.json`.
+2. `Nexus-Turn-Agent.yml` reads `.agent/queue.json` and executes bounded queue turns.
 
-Then it asks the model for exactly one tool decision.
+The repo is the memory layer. The workflow is the executor. The model is the planner/writer for one bounded action at a time.
 
-## Allowed tool decisions
+## Queue worker loop
 
-### THINK
+Each turn-agent run reads:
 
-Use when more planning or decomposition is needed before writing project files.
+- `.agent/goal.md`
+- `.agent/workflow.md`
+- `.agent/queue.json`
+- `.agent/state.json`
+- `.agent/tools.json`
+- recent `.agent/runs/` artifacts when present
 
-Required fields:
+Then it processes queued or active goals using bounded turns.
 
-```txt
-<decision>THINK</decision>
-<summary>...</summary>
-<next_state>{...}</next_state>
-```
+The loop is:
 
-### WRITE_FILE
+1. pick the next active or queued goal
+2. build a turn-request JSON object
+3. call the model for a turn-response JSON object
+4. validate the response
+5. apply safe file actions
+6. run deterministic tools and tests
+7. save request, response, tool, and applied artifacts
+8. update queue and state
+9. move to the next goal when complete
+10. commit a checkpoint
 
-Use when one complete file should be created or replaced.
+## Turn request contract
 
-Required fields:
+Each model call receives JSON with schema version, mode, run id, turn index, active goal, repo context, latest tool results, and allowed actions.
 
-```txt
-<decision>WRITE_FILE</decision>
-<summary>...</summary>
-<path>docs/example.html</path>
-<content>
-...
-</content>
-<next_state>{...}</next_state>
-```
+## Turn response contract
 
-### APPEND_FILE
+The model must return only JSON with these fields:
 
-Use when a bounded note or artifact should be appended to an existing file.
+- `decision`
+- `summary`
+- `actions`
+- `goal_update`
+- `requested_tools`
+- `continue`
 
-Required fields:
+Allowed action types:
 
-```txt
-<decision>APPEND_FILE</decision>
-<summary>...</summary>
-<path>.agent/notes.md</path>
-<content>
-...
-</content>
-<next_state>{...}</next_state>
-```
-
-### STOP
-
-Use when the current run has reached a useful stopping point.
-
-Required fields:
-
-```txt
-<decision>STOP</decision>
-<summary>...</summary>
-<next_state>{...}</next_state>
-```
+- `THINK`
+- `WRITE_FILE`
+- `APPEND_FILE`
+- `UPDATE_GOAL`
+- `MARK_GOAL_COMPLETE`
+- `MARK_GOAL_BLOCKED`
+- `STOP_RUN`
 
 ## Write boundaries
 
-The loop may write only inside these prefixes unless the YAML harness is deliberately changed by a human:
+The turn loop may write only inside these prefixes:
 
 - `.agent/`
 - `docs/`
 - `src/`
 - `generated/`
+- `agent_tools/`
 
-It should not edit `.github/workflows/` from inside the turn loop.
+It must not edit `.github/workflows/` from inside the turn loop.
 
-## Building a larger game from a small loop
+## Tool layer
 
-The turn agent should not try to create a whole complex game in one response.
+Tools are deterministic repo-local checks listed in `.agent/tools.json`.
 
-It should build by layers:
+The model may request a registered tool by id, but it cannot run arbitrary shell commands.
 
-1. document the current intent
-2. add or refine one small runtime surface
-3. add one reusable game system
-4. add one playable scene or interaction
-5. update launcher or manifest artifacts
-6. stop when the run has produced a coherent checkpoint
+Required baseline tools:
 
-This lets a small YAML harness grow a multilayered game repo over many bounded runs.
+- `queue_check`
+- `state_check`
+- `repo_policy_check`
+- `js_syntax_check`
+- `launcher_manifest_check`
+- `html_smoke_check`
+
+Tool results are written into `.agent/runs/<run-id>/turn-*-tools.json` and fed back into the next turn.
+
+## Goal completion
+
+A goal can be marked complete when the model marks it complete, or when file-existence success criteria pass and required tools pass.
+
+The agent should prefer small, auditable repo changes over large rewrites.

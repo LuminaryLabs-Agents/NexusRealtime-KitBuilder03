@@ -1,0 +1,144 @@
+name: NVIDIA Short Story Writer
+
+on:
+  workflow_dispatch:
+    inputs:
+      story_prompt:
+        description: "Prompt for the short story"
+        required: false
+        default: "Write a strange, beautiful short story about a live language model waking up inside a Git repository."
+      model:
+        description: "NVIDIA-hosted model name"
+        required: false
+        default: "nvidia/nemotron-3-ultra-550b-a55b"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nvidia-short-story-writer
+  cancel-in-progress: false
+
+jobs:
+  write-short-story:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install openai
+
+      - name: Generate short story
+        env:
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          STORY_PROMPT: ${{ github.event.inputs.story_prompt }}
+          NVIDIA_MODEL: ${{ github.event.inputs.model }}
+        run: |
+          python <<'PY'
+          from datetime import datetime, timezone
+          from pathlib import Path
+          import os
+          import re
+
+          from openai import OpenAI
+
+          api_key = os.environ.get("NVIDIA_API_KEY", "").strip()
+          if not api_key:
+              raise SystemExit("Missing NVIDIA_API_KEY secret.")
+
+          model = os.environ.get("NVIDIA_MODEL", "nvidia/nemotron-3-ultra-550b-a55b").strip()
+          prompt = os.environ.get("STORY_PROMPT", "").strip()
+          if not prompt:
+              prompt = "Write a strange, beautiful short story about a live language model waking up inside a Git repository."
+
+          client = OpenAI(
+              base_url="https://integrate.api.nvidia.com/v1",
+              api_key=api_key,
+          )
+
+          completion = client.chat.completions.create(
+              model=model,
+              messages=[
+                  {
+                      "role": "system",
+                      "content": (
+                          "You write polished short literary fiction. "
+                          "Return only the story text. Do not include analysis, notes, markdown fences, or explanations."
+                      ),
+                  },
+                  {"role": "user", "content": prompt},
+              ],
+              temperature=1,
+              top_p=0.95,
+              max_tokens=2048,
+              extra_body={
+                  "chat_template_kwargs": {"enable_thinking": True},
+                  "reasoning_budget": 4096,
+              },
+              stream=True,
+          )
+
+          story_parts = []
+          for chunk in completion:
+              if not chunk.choices:
+                  continue
+              delta = chunk.choices[0].delta
+              # Intentionally discard reasoning_content. Only final story text is written to the repo.
+              if delta.content is not None:
+                  print(delta.content, end="")
+                  story_parts.append(delta.content)
+
+          story = "".join(story_parts).strip()
+          if not story:
+              raise SystemExit("The model returned no story content.")
+
+          now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%SZ")
+          safe_model = re.sub(r"[^A-Za-z0-9_.-]+", "-", model).strip("-")
+
+          out_dir = Path("generated")
+          history_dir = out_dir / "stories"
+          history_dir.mkdir(parents=True, exist_ok=True)
+
+          header = "\n".join([
+              "# NVIDIA Generated Short Story",
+              "",
+              f"Generated at: `{now}`",
+              f"Model: `{model}`",
+              "",
+              "## Prompt",
+              "",
+              prompt,
+              "",
+              "## Story",
+              "",
+          ])
+
+          body = header + story + "\n"
+
+          (out_dir / "latest-story.md").write_text(body, encoding="utf-8")
+          (history_dir / f"{now}-{safe_model}.md").write_text(body, encoding="utf-8")
+          PY
+
+      - name: Commit generated story
+        run: |
+          git config user.name "nvidia-story-bot"
+          git config user.email "nvidia-story-bot@users.noreply.github.com"
+
+          git add generated/latest-story.md generated/stories/
+
+          if git diff --cached --quiet; then
+            echo "No generated story changes to commit."
+            exit 0
+          fi
+
+          git commit -m "chore: generate NVIDIA short story"
+          git push

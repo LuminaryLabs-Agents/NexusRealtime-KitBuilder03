@@ -1,0 +1,15 @@
+{
+  "title": "Nexus Turn Request",
+  "type": "object",
+  "required": ["schema_version", "mode", "run_id", "turn_index", "goal", "allowed_actions"],
+  "properties": {
+    "schema_version": {"type": "integer"},
+    "mode": {"type": "string"},
+    "run_id": {"type": "string"},
+    "turn_index": {"type": "integer"},
+    "goal": {"type": "object"},
+    "repo_context": {"type": "object"},
+    "latest_tool_results": {"type": ["object", "null"]},
+    "allowed_actions": {"type": "array", "items": {"type": "string"}}
+  }
+}

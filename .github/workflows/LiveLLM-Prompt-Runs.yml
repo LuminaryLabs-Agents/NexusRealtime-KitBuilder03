@@ -7,6 +7,10 @@ on:
       - main
     paths:
       - "LiveHarnessV.01/prompt-inbox/**"
+      - "LiveHarnessV.01/tools/live_harness/**"
+      - "LiveHarnessV.01/stage-profiles/**"
+      - "LiveHarnessV.01/harness-kits/**"
+      - "LiveHarnessV.01/schemas/**"
       - ".github/workflows/LiveLLM-Prompt-Runs.yml"
 
 env:

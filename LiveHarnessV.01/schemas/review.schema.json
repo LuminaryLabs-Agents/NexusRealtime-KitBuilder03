@@ -1,0 +1,1 @@
+{"title":"LiveHarness Review","type":"object","required":["approve","summary"],"properties":{"approve":{"type":"boolean"},"summary":{"type":"string"},"issues":{"type":"array","items":{"type":"string"}},"recommended_action":{"type":"string"}}}

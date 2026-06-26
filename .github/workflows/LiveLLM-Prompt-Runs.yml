@@ -47,6 +47,7 @@ jobs:
         shell: bash
         env:
           NVIDIA_API_KEY: ${{ secrets[env.NVIDIA_SECRET_NAME] }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           mkdir -p LiveHarnessV.01/runs
@@ -65,11 +66,11 @@ jobs:
             STAMP="$(date -u +%Y-%m-%dT%H-%M-%SZ)"
             RUN_ID="$STAMP-$BASENAME"
             RUN_DIR="LiveHarnessV.01/runs/$RUN_ID"
-            mkdir -p "$RUN_DIR/input" "$RUN_DIR/logs" "$RUN_DIR/status" "$RUN_DIR/tools" "$RUN_DIR/review"
+            mkdir -p "$RUN_DIR/input" "$RUN_DIR/logs" "$RUN_DIR/status" "$RUN_DIR/tools" "$RUN_DIR/review" "$RUN_DIR/context" "$RUN_DIR/learning" "$RUN_DIR/purge"
 
             cp "$PROMPT_FILE" "$RUN_DIR/input/prompt.md"
             printf '%s\n' "$PROMPT_FILE" > "$RUN_DIR/input/prompt-path.txt"
-            env | sort | grep -E -v 'TOKEN|SECRET|KEY|PASSWORD|NVIDIA_API_KEY' > "$RUN_DIR/logs/env.txt"
+            env | sort | grep -E -v 'TOKEN|SECRET|KEY|PASSWORD|NVIDIA_API_KEY|GH_TOKEN' > "$RUN_DIR/logs/env.txt"
             PROMPT_TEXT="$(cat "$PROMPT_FILE")"
             if [ -n "${NVIDIA_API_KEY:-}" ]; then
               NVIDIA_KEY_PRESENT=true
@@ -97,19 +98,24 @@ jobs:
             TOOLS_EXIT=$?
             set -e
 
+            set +e
+            (cd LiveHarnessV.01 && LIVEHARNESS_RUN_ID="$RUN_ID" LIVEHARNESS_RUN_DIR="runs/$RUN_ID" GH_TOKEN="$GH_TOKEN" GAME_PROMPT="$PROMPT_TEXT" PYTHONPATH=tools python -m live_harness.post_run_pipeline --run-dir "runs/$RUN_ID") > "$RUN_DIR/logs/postrun.stdout.log" 2> "$RUN_DIR/logs/postrun.stderr.log"
+            POST_EXIT=$?
+            set -e
+
             OVERALL_OK=false
-            if [ "$HARNESS_EXIT" -eq 0 ] && [ "$TOOLS_EXIT" -eq 0 ]; then
+            if [ "$HARNESS_EXIT" -eq 0 ] && [ "$TOOLS_EXIT" -eq 0 ] && [ "$POST_EXIT" -eq 0 ]; then
               OVERALL_OK=true
             else
               OVERALL=1
             fi
 
-            printf '{"harness_exit":%s,"tools_exit":%s,"overall_ok":%s,"mode":"%s","nvidia_key_present":%s,"nvidia_model":"%s"}\n' "$HARNESS_EXIT" "$TOOLS_EXIT" "$OVERALL_OK" "$LIVEHARNESS_MODE" "$NVIDIA_KEY_PRESENT" "$NVIDIA_MODEL" > "$RUN_DIR/status/exit-codes.json"
+            printf '{"harness_exit":%s,"tools_exit":%s,"post_run_exit":%s,"overall_ok":%s,"mode":"%s","nvidia_key_present":%s,"nvidia_model":"%s"}\n' "$HARNESS_EXIT" "$TOOLS_EXIT" "$POST_EXIT" "$OVERALL_OK" "$LIVEHARNESS_MODE" "$NVIDIA_KEY_PRESENT" "$NVIDIA_MODEL" > "$RUN_DIR/status/exit-codes.json"
 
             if [ "$OVERALL_OK" = true ]; then
               printf '{"status":"success","run_id":"%s"}\n' "$RUN_ID" > "$RUN_DIR/status/success.json"
             else
-              printf '{"status":"failure","run_id":"%s","harness_exit":%s,"tools_exit":%s}\n' "$RUN_ID" "$HARNESS_EXIT" "$TOOLS_EXIT" > "$RUN_DIR/status/failure.json"
+              printf '{"status":"failure","run_id":"%s","harness_exit":%s,"tools_exit":%s,"post_run_exit":%s}\n' "$RUN_ID" "$HARNESS_EXIT" "$TOOLS_EXIT" "$POST_EXIT" > "$RUN_DIR/status/failure.json"
             fi
 
             {
@@ -122,11 +128,13 @@ jobs:
               echo "- NVIDIA model: $NVIDIA_MODEL"
               echo "- Harness exit: $HARNESS_EXIT"
               echo "- Tools exit: $TOOLS_EXIT"
+              echo "- Post-run exit: $POST_EXIT"
               echo "- Overall OK: $OVERALL_OK"
             } > "$RUN_DIR/logs/workflow-summary.md"
 
             echo "- Harness exit: \`$HARNESS_EXIT\`" >> "$GITHUB_STEP_SUMMARY"
             echo "- Tools exit: \`$TOOLS_EXIT\`" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Post-run exit: \`$POST_EXIT\`" >> "$GITHUB_STEP_SUMMARY"
             echo "- Logs: \`$RUN_DIR/logs/\`" >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
           done
@@ -140,7 +148,7 @@ jobs:
           set -euo pipefail
           git config user.name "livellm-prompt-runs"
           git config user.email "livellm-prompt-runs@users.noreply.github.com"
-          git add LiveHarnessV.01/runs/ LiveHarnessV.01/ledgers/ LiveHarnessV.01/state/ docs/ generated/ src/
+          git add LiveHarnessV.01/runs/ LiveHarnessV.01/ledgers/ LiveHarnessV.01/state/ LiveHarnessV.01/archive/ docs/ generated/ src/
           if git diff --cached --quiet; then
             echo "No prompt run artifacts to commit."
             exit 0

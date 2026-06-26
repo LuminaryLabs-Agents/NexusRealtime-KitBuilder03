@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "active_run_id": null,
+  "mode": "rapid_game",
+  "root_status": "idle",
+  "current_round": 0,
+  "limits": {
+    "max_depth": 3,
+    "max_orchestrators": 12,
+    "max_slots": 40,
+    "max_rounds_per_agent": 3,
+    "max_reconcile_attempts": 2,
+    "max_total_model_calls": 80
+  }
+}

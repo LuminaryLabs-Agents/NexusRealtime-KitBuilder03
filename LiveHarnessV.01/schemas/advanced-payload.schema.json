@@ -1,0 +1,1 @@
+{"title":"LiveHarness Advanced Payload","type":"object","properties":{"injectable":{"type":"boolean"},"title":{"type":"string"},"assumptions":{"type":"array","items":{"type":"string"}},"dependencies":{"type":"array","items":{"type":"string"}},"risks":{"type":"array","items":{"type":"string"}},"content":{"type":"object"}}}

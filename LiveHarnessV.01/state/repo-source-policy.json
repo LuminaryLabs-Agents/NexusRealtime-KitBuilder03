@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "repos": [
+    {
+      "repo": "LuminaryLabs-Dev/NexusRealtime",
+      "role": "core_runtime",
+      "trust_level": "high",
+      "allowed_uses": ["runtime_dependency", "reference_pattern", "validation_source"],
+      "preferred_import_base": "https://cdn.jsdelivr.net/gh/LuminaryLabs-Dev/NexusRealtime@main/src/"
+    },
+    {
+      "repo": "LuminaryLabs-Agents/NexusRealtime-ProtoKits",
+      "role": "protokit_source",
+      "trust_level": "high",
+      "allowed_uses": ["runtime_dependency", "reference_pattern", "template_seed", "validation_source"],
+      "preferred_import_base": "https://cdn.jsdelivr.net/gh/LuminaryLabs-Agents/NexusRealtime-ProtoKits@main/protokits/"
+    },
+    {
+      "repo": "LuminaryLabs-Agents/NexusRealtime-KitBuilder03",
+      "role": "local_project",
+      "trust_level": "high",
+      "allowed_uses": ["reference_pattern", "template_seed", "validation_source"]
+    }
+  ],
+  "blocked_paths": [".github/", "node_modules/", "dist/", ".env", "credentials", "runs/", "ledgers/"],
+  "max_snippets_per_repo": 30,
+  "max_summary_chars_per_capsule": 900
+}

@@ -8,8 +8,9 @@ import re
 import subprocess
 
 from .common import harness_root, read_json, write_json, ledger, utc_id
+from .repo_usage_filter import check_candidate as repo_usage_filter
 
-HARD_PUBLIC_TERMS = ["NVIDIA", "OpenAI", "nemotron", "reasoning_budget", "workflow_dispatch", "API key", "secret", "GITHUB_TOKEN", "GH_TOKEN", "model tier", "chat.completions"]
+HARD_PUBLIC_TERMS = ["NVIDIA", "OpenAI", "nemotron", "reasoning_budget", "workflow_dispatch", "API key", "credential", "GITHUB_TOKEN", "GH_TOKEN", "model tier", "chat.completions"]
 LEGACY_TERMS = ["NexusLiveLLM Game Launcher", "Generated Game Ladder", "living language model inside a GitHub Pages arcade launcher", "nvidia/nemotron"]
 JS_IMPORT_RE = re.compile(r"(?:import\s+(?:[^'\"]+\s+from\s+)?|import\s*\()\s*['\"]([^'\"]+)['\"]")
 
@@ -30,7 +31,7 @@ def path_filter(write_set: dict[str, Any]) -> dict[str, Any]:
         parts = Path(normalized).parts
         if not normalized.startswith("docs/games/"):
             errors.append(f"not under docs/games: {path}")
-        if ".." in parts or normalized.startswith("/") or normalized.startswith(".github/") or ".env" in parts or "secret" in normalized.lower():
+        if ".." in parts or normalized.startswith("/") or normalized.startswith(".github/") or ".env" in parts or "credential" in normalized.lower():
             errors.append(f"forbidden path: {path}")
     return _record("path-filter", not errors, errors)
 
@@ -127,7 +128,7 @@ def syntax_filter(candidate_dir: Path) -> dict[str, Any]:
 
 
 def ledger_completeness_filter(run_dir: Path) -> dict[str, Any]:
-    required = ["input/master-interpretation.json", "input/goal-ast.json", "swarm/swarm-plan.json", "write-sets/final-write-set.json"]
+    required = ["input/master-interpretation.json", "input/goal-ast.json", "intake/fused/integration-plan.json", "swarm/swarm-plan.json", "write-sets/final-write-set.json"]
     missing = [path for path in required if not (run_dir / path).exists()]
     worker_status = list((run_dir / "swarm").glob("worker-*/status.json"))
     if not worker_status:
@@ -153,6 +154,7 @@ def validate_sandbox(run_dir: Path, write_set: dict[str, Any]) -> dict[str, Any]
     checks = [
         path_filter(write_set),
         public_output_membrane_filter(candidate_dir),
+        repo_usage_filter(run_dir, candidate_dir),
         file_size_filter(candidate_dir),
         required_file_filter(candidate_dir),
         module_graph_filter(candidate_dir),
@@ -169,6 +171,7 @@ def validate_sandbox(run_dir: Path, write_set: dict[str, Any]) -> dict[str, Any]
         first = failed[0]
         target = {
             "public-output-membrane": "product-brief-worker",
+            "repo_capability_usage_filter": "repo-intake-worker",
             "path-filter": "slot-reconciler",
             "module-graph-filter": "slot-reconciler",
             "syntax-filter": "repair-worker",

@@ -10,6 +10,8 @@ import shutil
 from .common import harness_root, repo_root, read_json, write_json, write_text, ledger, utc_id
 from .master_interpreter import build_master_interpretation
 from .action_ast_runner import ensure_action_ast
+from .source_intake_agent import run_all as run_source_intake_agents
+from .intake_fusion import fuse as fuse_intake_reports
 from .swarm_planner import plan_swarm
 from .async_slot_dispatcher import run_dispatch
 from .slot_validator import validate_slots
@@ -44,7 +46,7 @@ def _load_prompt(run_dir: Path, prompt_file: str = "") -> tuple[str, str]:
 
 
 def _prepare_run(run_dir: Path, prompt: str, prompt_ref: str) -> None:
-    for child in ["input", "logs", "status", "validation", "swarm", "write-sets/proposed", "write-sets/applied-to-sandbox", "write-sets/rejected", "self-alignment", "loops", "sandbox", "tools", "review", "learning", "gates"]:
+    for child in ["input", "logs", "status", "validation", "swarm", "write-sets/proposed", "write-sets/applied-to-sandbox", "write-sets/rejected", "self-alignment", "loops", "sandbox", "tools", "review", "learning", "gates", "intake"]:
         (run_dir / child).mkdir(parents=True, exist_ok=True)
     write_text(run_dir / "input" / "prompt.md", prompt)
     write_text(run_dir / "input" / "prompt-ref.txt", prompt_ref + "\n")
@@ -60,7 +62,7 @@ def _render_launcher(manifest: list[dict[str, Any]]) -> None:
         url = str(item.get("url") or "#")
         cards.append(f"<article class='game-card'><div class='rank'>#{index:02d}</div><div><h2>{title}</h2><p>{summary}</p><p class='score'>Score {item.get('score', 100)}</p><a class='play' href='{url}'>Play build</a></div></article>")
     latest = manifest[0].get("url", "#") if manifest else "#"
-    index_html = "<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>NexusRealtime KitBuilder03</title><link rel='stylesheet' href='./launcher.css'></head><body><main class='shell'><section class='hero'><p class='eyebrow'>one-commit sandbox build</p><h1>KitBuilder03 Active Builds</h1><p class='lede'>Every active build is promoted from a sandbox only after file-filter validation, DSK boundary checks, and self-alignment.</p><a class='primary' href='" + latest + "'>Play top build</a><a class='secondary' href='./cleanup.html'>Review cleanup ledger</a></section><section class='ladder'>" + ("".join(cards) if cards else "<p>No active builds yet.</p>") + "</section></main></body></html>"
+    index_html = "<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>NexusRealtime KitBuilder03</title><link rel='stylesheet' href='./launcher.css'></head><body><main class='shell'><section class='hero'><p class='eyebrow'>one-commit sandbox build</p><h1>KitBuilder03 Active Builds</h1><p class='lede'>Every active build is promoted from a sandbox only after file-filter validation, DSK boundary checks, repo-aware intake, and self-alignment.</p><a class='primary' href='" + latest + "'>Play top build</a><a class='secondary' href='./cleanup.html'>Review cleanup ledger</a></section><section class='ladder'>" + ("".join(cards) if cards else "<p>No active builds yet.</p>") + "</section></main></body></html>"
     css = ":root{color-scheme:dark;font-family:system-ui,sans-serif}body{margin:0;background:#06110c;color:#eefbf1}.shell{width:min(1120px,calc(100% - 32px));margin:auto;padding:48px 0}.hero,.game-card,.cleanup-card{border:1px solid rgba(157,255,190,.22);background:linear-gradient(135deg,rgba(6,28,18,.9),rgba(10,18,32,.84));border-radius:28px;padding:24px;margin:16px 0}.eyebrow{color:#afffc6;text-transform:uppercase;letter-spacing:.16em;font-weight:900}.lede{max-width:820px;color:#cbd8d0;font-size:18px}.primary,.secondary,.play{display:inline-flex;margin:10px 10px 0 0;padding:11px 15px;border-radius:999px;text-decoration:none;font-weight:900}.primary,.play{background:#bfffd2;color:#06110b}.secondary{border:1px solid rgba(255,255,255,.2);color:#eefbf1}.game-card{display:grid;grid-template-columns:74px 1fr;gap:18px}.rank{font-size:28px;font-weight:1000;color:#bfffd2}.score{color:#9fffc0;font-weight:900}table{border-collapse:collapse;width:100%;margin-top:16px}td,th{border:1px solid rgba(255,255,255,.18);padding:8px;text-align:left}th{background:rgba(191,255,210,.14)}"
     cleanup = "<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Cleanup</title><link rel='stylesheet' href='./launcher.css'></head><body><main class='shell'><section class='hero'><p class='eyebrow'>Cleanup and Learning</p><h1>Rolling Gallery</h1><p class='lede'>The public manifest keeps at most ten active builds. Older outputs are retained as run artifacts or capsules before they are removed from public navigation.</p><a class='secondary' href='./index.html'>Back to launcher</a></section></main></body></html>"
     write_text(docs / "index.html", index_html)
@@ -114,7 +116,7 @@ def _update_learning(run_dir: Path, candidate_id: str, final_ok: bool) -> None:
     memory["updated_at"] = utc_id()
     memory["latest_massive_build"] = {"run_id": run_dir.name, "candidate_id": candidate_id, "ok": final_ok}
     lessons = memory.setdefault("latest_lessons", [])
-    for lesson in ["Sandbox-first writes prevent half-broken public output.", "Renderer should present state while domains own commands/events.", "Single final commit keeps workflow history readable."]:
+    for lesson in ["Repo-aware intake should constrain generation before swarm planning.", "Sandbox-first writes prevent half-broken public output.", "Renderer should present state while domains own commands/events.", "Single final commit keeps workflow history readable."]:
         if lesson not in lessons:
             lessons.insert(0, lesson)
     memory["latest_lessons"] = lessons[:12]
@@ -122,11 +124,11 @@ def _update_learning(run_dir: Path, candidate_id: str, final_ok: bool) -> None:
     caps_path = harness_root() / "state" / "capability-ledger.json"
     caps = read_json(caps_path, {"version": 1, "capabilities": []})
     existing = {c.get("id"): c for c in caps.get("capabilities", []) if isinstance(c, dict)}
-    for cap in ["massive.sandbox.build-loop", "public-output.membrane", "dsk.build-break.trace", "gamehost.debug.surface", "single-final-commit.policy"]:
+    for cap in ["repo-aware.source-intake", "massive.sandbox.build-loop", "public-output.membrane", "dsk.build-break.trace", "gamehost.debug.surface", "single-final-commit.policy"]:
         item = existing.get(cap) or {"id": cap, "status": "candidate", "evidence": []}
         item.setdefault("evidence", []).append(f"{run_dir.name} ok={final_ok}")
-        if final_ok:
-            item["status"] = "stable" if cap in {"public-output.membrane", "single-final-commit.policy"} else item.get("status", "candidate")
+        if final_ok and cap in {"public-output.membrane", "single-final-commit.policy", "repo-aware.source-intake"}:
+            item["status"] = "stable"
         existing[cap] = item
     caps["capabilities"] = sorted(existing.values(), key=lambda c: c.get("id", ""))
     caps["updated_at"] = utc_id()
@@ -137,6 +139,10 @@ def run_massive_build(run_id: str, run_dir: Path, prompt: str, prompt_ref: str, 
     _prepare_run(run_dir, prompt, prompt_ref)
     build_master_interpretation(prompt, run_dir, prompt_ref)
     ensure_action_ast(run_dir, "40-prototype")
+    intake_summary = run_source_intake_agents(run_dir)
+    integration_plan = fuse_intake_reports(run_dir)
+    write_json(run_dir / "input" / "intake-summary.json", intake_summary)
+    write_json(run_dir / "input" / "integration-plan.json", integration_plan)
     final_validation: dict[str, Any] = {"ok": False, "failed_filters": ["not-run"]}
     final_write_set: dict[str, Any] = {}
     final_alignment: dict[str, Any] = {}
@@ -150,7 +156,7 @@ def run_massive_build(run_id: str, run_dir: Path, prompt: str, prompt_ref: str, 
         sandbox_result = apply_to_sandbox(final_write_set, run_dir)
         final_validation = validate_sandbox(run_dir, final_write_set)
         final_alignment = _write_alignment_round(run_dir, loop_index, final_validation)
-        loop_state = {"schema": "liveharness.loop-state.v1", "loop_index": loop_index, "started_at": loop_started, "completed_at": utc_id(), "swarm": dispatch, "slot_validation": slot_validation, "write_set": {"files": len(final_write_set.get("files", [])), "applied_to_sandbox": sandbox_result.get("ok")}, "validation": {"ok": final_validation.get("ok"), "failed": final_validation.get("failed_filters", [])}, "self_alignment": final_alignment, "next": {"action": "promote" if final_validation.get("ok") and final_alignment.get("decision") == "ADVANCE" else "repair", "target": final_validation.get("loopback", {}).get("target") if final_validation.get("loopback") else "promote_candidate"}}
+        loop_state = {"schema": "liveharness.loop-state.v1", "loop_index": loop_index, "started_at": loop_started, "completed_at": utc_id(), "intake": {"reports": len(intake_summary.get("reports", [])), "integration_mode": integration_plan.get("mode")}, "swarm": dispatch, "slot_validation": slot_validation, "write_set": {"files": len(final_write_set.get("files", [])), "applied_to_sandbox": sandbox_result.get("ok")}, "validation": {"ok": final_validation.get("ok"), "failed": final_validation.get("failed_filters", [])}, "self_alignment": final_alignment, "next": {"action": "promote" if final_validation.get("ok") and final_alignment.get("decision") == "ADVANCE" else "repair", "target": final_validation.get("loopback", {}).get("target") if final_validation.get("loopback") else "promote_candidate"}}
         write_json(run_dir / "loops" / f"loop-{loop_index:03d}.json", loop_state)
         if final_validation.get("ok") and final_alignment.get("decision") == "ADVANCE":
             promotion = promote_candidate(run_dir, final_write_set, final_validation)
@@ -167,7 +173,7 @@ def run_massive_build(run_id: str, run_dir: Path, prompt: str, prompt_ref: str, 
     write_json(run_dir / "status" / "final-status.json", status)
     if not final_ok:
         write_json(run_dir / "status" / "failure.json", {"status": status, "validation": final_validation, "public_validation": public_validation})
-    report = f"# Massive Build Final Report\n\n- Run ID: `{run_id}`\n- Prompt: `{prompt_ref}`\n- Candidate: `{candidate_id}`\n- Status: `{status['status']}`\n- Loops attempted: `{status['loops_attempted']}`\n- Public path: `{status['public_path']}`\n- Validation OK: `{final_ok}`\n\n## Failed Filters\n\n{', '.join(final_validation.get('failed_filters', [])) or 'none'}\n"
+    report = f"# Massive Build Final Report\n\n- Run ID: `{run_id}`\n- Prompt: `{prompt_ref}`\n- Candidate: `{candidate_id}`\n- Status: `{status['status']}`\n- Loops attempted: `{status['loops_attempted']}`\n- Public path: `{status['public_path']}`\n- Validation OK: `{final_ok}`\n- Intake reports: `{len(intake_summary.get('reports', []))}`\n- Integration mode: `{integration_plan.get('mode')}`\n\n## Failed Filters\n\n{', '.join(final_validation.get('failed_filters', [])) or 'none'}\n"
     write_text(run_dir / "final-report.md", report)
     ledger("build-ledger.jsonl", {"time": utc_id(), "event": "massive_build.completed", "run_id": run_id, "ok": final_ok, "candidate_id": candidate_id})
     return status

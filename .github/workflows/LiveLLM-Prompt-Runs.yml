@@ -1,183 +1,25 @@
-name: LiveLLM Prompt Runs
+name: LiveLLM Prompt Runs Legacy
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      - "LiveHarnessV.01/prompt-inbox/**"
-      - "LiveHarnessV.01/tools/live_harness/**"
-      - "LiveHarnessV.01/stage-profiles/**"
-      - "LiveHarnessV.01/harness-kits/**"
-      - "LiveHarnessV.01/schemas/**"
-      - ".github/workflows/LiveLLM-Prompt-Runs.yml"
-
-env:
-  NVIDIA_SECRET_NAME: NVIDIA_API_KEY
-  NVIDIA_MODEL: nvidia/nemotron-3-ultra-550b-a55b
-  LIVEHARNESS_MODE: kit-builder
+    inputs:
+      note:
+        description: "Legacy manual-only prompt runner. Push-triggered docs output is owned by LiveHarness Massive Build."
+        required: false
+        default: "manual legacy check"
 
 permissions:
-  contents: write
-  pages: write
-  id-token: write
+  contents: read
 
 concurrency:
-  group: livellm-prompt-runs
+  group: livellm-prompt-runs-legacy
   cancel-in-progress: false
 
 jobs:
-  prompt-runs:
+  legacy-disabled:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
-      - name: Run all prompt files with full logging
-        shell: bash
-        env:
-          NVIDIA_API_KEY: ${{ secrets[env.NVIDIA_SECRET_NAME] }}
-          GH_TOKEN: ${{ github.token }}
+      - name: Legacy prompt runner is disabled for push events
         run: |
-          set -euo pipefail
-          mkdir -p LiveHarnessV.01/runs
-          echo "# LiveHarness Prompt Runs" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-
-          mapfile -t PROMPTS < <(find LiveHarnessV.01/prompt-inbox -name "*.md" -type f | sort)
-          if [ "${#PROMPTS[@]}" -eq 0 ]; then
-            echo "No prompt files found." | tee -a "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-
-          OVERALL=0
-          for PROMPT_FILE in "${PROMPTS[@]}"; do
-            BASENAME="$(basename "$PROMPT_FILE" .md)"
-            STAMP="$(date -u +%Y-%m-%dT%H-%M-%SZ)"
-            RUN_ID="$STAMP-$BASENAME"
-            RUN_DIR="LiveHarnessV.01/runs/$RUN_ID"
-            mkdir -p "$RUN_DIR/input" "$RUN_DIR/logs" "$RUN_DIR/status" "$RUN_DIR/tools" "$RUN_DIR/review" "$RUN_DIR/context" "$RUN_DIR/learning" "$RUN_DIR/purge" "$RUN_DIR/turns" "$RUN_DIR/self-alignment" "$RUN_DIR/monitor" "$RUN_DIR/gates" "$RUN_DIR/write-sets/proposed" "$RUN_DIR/write-sets/applied" "$RUN_DIR/write-sets/rejected"
-
-            cp "$PROMPT_FILE" "$RUN_DIR/input/prompt.md"
-            printf '%s\n' "$PROMPT_FILE" > "$RUN_DIR/input/prompt-path.txt"
-            env | sort | grep -E -v 'TOKEN|SECRET|KEY|PASSWORD|NVIDIA_API_KEY|GH_TOKEN' > "$RUN_DIR/logs/env.txt"
-            PROMPT_TEXT="$(cat "$PROMPT_FILE")"
-            if [ -n "${NVIDIA_API_KEY:-}" ]; then
-              NVIDIA_KEY_PRESENT=true
-            else
-              NVIDIA_KEY_PRESENT=false
-            fi
-
-            printf '{"event":"%s","ref":"%s","sha":"%s","workflow":"LiveLLM Prompt Runs","github_run_id":"%s","prompt_file":"%s","mode":"%s","nvidia_key_present":%s,"nvidia_model":"%s"}\n' "$GITHUB_EVENT_NAME" "$GITHUB_REF" "$GITHUB_SHA" "$GITHUB_RUN_ID" "$PROMPT_FILE" "$LIVEHARNESS_MODE" "$NVIDIA_KEY_PRESENT" "$NVIDIA_MODEL" > "$RUN_DIR/input/trigger.json"
-
-            echo "## Prompt: $BASENAME" >> "$GITHUB_STEP_SUMMARY"
-            echo "" >> "$GITHUB_STEP_SUMMARY"
-            echo "- Run ID: \`$RUN_ID\`" >> "$GITHUB_STEP_SUMMARY"
-            echo "- Prompt file: \`$PROMPT_FILE\`" >> "$GITHUB_STEP_SUMMARY"
-            echo "- Mode: \`$LIVEHARNESS_MODE\`" >> "$GITHUB_STEP_SUMMARY"
-            echo "- NVIDIA key present: \`$NVIDIA_KEY_PRESENT\`" >> "$GITHUB_STEP_SUMMARY"
-            echo "- NVIDIA model: \`$NVIDIA_MODEL\`" >> "$GITHUB_STEP_SUMMARY"
-
-            set +e
-            (cd LiveHarnessV.01 && LIVEHARNESS_RUN_ID="$RUN_ID" LIVEHARNESS_RUN_DIR="runs/$RUN_ID" LIVEHARNESS_MODE="$LIVEHARNESS_MODE" NVIDIA_API_KEY="$NVIDIA_API_KEY" NVIDIA_MODEL="$NVIDIA_MODEL" GAME_PROMPT="$PROMPT_TEXT" PYTHONPATH=tools python -m live_harness.orchestration_runner) > "$RUN_DIR/logs/orchestration.stdout.log" 2> "$RUN_DIR/logs/orchestration.stderr.log"
-            HARNESS_EXIT=$?
-            set -e
-
-            set +e
-            (cd LiveHarnessV.01 && LIVEHARNESS_RUN_ID="$RUN_ID" LIVEHARNESS_RUN_DIR="runs/$RUN_ID" GAME_PROMPT="$PROMPT_TEXT" PYTHONPATH=tools python -m live_harness.turn_self_alignment --run-dir "runs/$RUN_ID" --phase pre_tools) > "$RUN_DIR/logs/self_alignment.stdout.log" 2> "$RUN_DIR/logs/self_alignment.stderr.log"
-            ALIGN_EXIT=$?
-            set -e
-
-            set +e
-            (cd LiveHarnessV.01 && PYTHONPATH=tools python -m live_harness.run_tools --output "runs/$RUN_ID/tools/final-tool-results.json") > "$RUN_DIR/logs/tools.stdout.log" 2> "$RUN_DIR/logs/tools.stderr.log"
-            TOOLS_EXIT=$?
-            set -e
-
-            set +e
-            (cd LiveHarnessV.01 && LIVEHARNESS_RUN_ID="$RUN_ID" LIVEHARNESS_RUN_DIR="runs/$RUN_ID" GH_TOKEN="$GH_TOKEN" GAME_PROMPT="$PROMPT_TEXT" PYTHONPATH=tools python -m live_harness.post_run_pipeline --run-dir "runs/$RUN_ID") > "$RUN_DIR/logs/postrun.stdout.log" 2> "$RUN_DIR/logs/postrun.stderr.log"
-            POST_EXIT=$?
-            set -e
-
-            OVERALL_OK=false
-            if [ "$HARNESS_EXIT" -eq 0 ] && [ "$ALIGN_EXIT" -eq 0 ] && [ "$POST_EXIT" -eq 0 ]; then
-              OVERALL_OK=true
-            else
-              OVERALL=1
-            fi
-
-            printf '{"harness_exit":%s,"self_alignment_exit":%s,"tools_exit":%s,"post_run_exit":%s,"overall_ok":%s,"mode":"%s","nvidia_key_present":%s,"nvidia_model":"%s"}\n' "$HARNESS_EXIT" "$ALIGN_EXIT" "$TOOLS_EXIT" "$POST_EXIT" "$OVERALL_OK" "$LIVEHARNESS_MODE" "$NVIDIA_KEY_PRESENT" "$NVIDIA_MODEL" > "$RUN_DIR/status/exit-codes.json"
-
-            if [ "$OVERALL_OK" = true ]; then
-              printf '{"status":"success","run_id":"%s"}\n' "$RUN_ID" > "$RUN_DIR/status/success.json"
-            else
-              printf '{"status":"failure","run_id":"%s","harness_exit":%s,"self_alignment_exit":%s,"tools_exit":%s,"post_run_exit":%s}\n' "$RUN_ID" "$HARNESS_EXIT" "$ALIGN_EXIT" "$TOOLS_EXIT" "$POST_EXIT" > "$RUN_DIR/status/failure.json"
-            fi
-
-            {
-              echo "# LiveHarness Prompt Run"
-              echo ""
-              echo "- Prompt: $PROMPT_FILE"
-              echo "- Run ID: $RUN_ID"
-              echo "- Mode: $LIVEHARNESS_MODE"
-              echo "- NVIDIA key present: $NVIDIA_KEY_PRESENT"
-              echo "- NVIDIA model: $NVIDIA_MODEL"
-              echo "- Harness exit: $HARNESS_EXIT"
-              echo "- Self-alignment exit: $ALIGN_EXIT"
-              echo "- Tools exit: $TOOLS_EXIT"
-              echo "- Post-run exit: $POST_EXIT"
-              echo "- Overall OK: $OVERALL_OK"
-            } > "$RUN_DIR/logs/workflow-summary.md"
-
-            echo "- Harness exit: \`$HARNESS_EXIT\`" >> "$GITHUB_STEP_SUMMARY"
-            echo "- Self-alignment exit: \`$ALIGN_EXIT\`" >> "$GITHUB_STEP_SUMMARY"
-            echo "- Tools exit: \`$TOOLS_EXIT\`" >> "$GITHUB_STEP_SUMMARY"
-            echo "- Post-run exit: \`$POST_EXIT\`" >> "$GITHUB_STEP_SUMMARY"
-            echo "- Logs: \`$RUN_DIR/logs/\`" >> "$GITHUB_STEP_SUMMARY"
-            echo "" >> "$GITHUB_STEP_SUMMARY"
-          done
-
-          echo "$OVERALL" > LiveHarnessV.01/runs/.prompt-runs-overall-exit
-          exit 0
-
-      - name: Commit prompt run artifacts
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name "livellm-prompt-runs"
-          git config user.email "livellm-prompt-runs@users.noreply.github.com"
-          git add LiveHarnessV.01/runs/ LiveHarnessV.01/ledgers/ LiveHarnessV.01/state/ LiveHarnessV.01/archive/ docs/ generated/ src/
-          if git diff --cached --quiet; then
-            echo "No prompt run artifacts to commit."
-            exit 0
-          fi
-          git commit -m "chore: record LiveHarness prompt run artifacts"
-          git push
-
-      - name: Configure GitHub Pages
-        if: always()
-        uses: actions/configure-pages@v5
-
-      - name: Upload Pages artifact
-        if: always()
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: docs
-
-      - name: Deploy to GitHub Pages
-        if: always()
-        id: deploy
-        uses: actions/deploy-pages@v4
+          echo "LiveLLM Prompt Runs is now manual-only."
+          echo "Use LiveHarness Massive Build for sandbox-first generation, validation, one final commit, and Pages deploy."

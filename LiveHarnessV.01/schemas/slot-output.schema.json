@@ -1,0 +1,1 @@
+{"title":"LiveHarness Slot Output","type":"object","required":["slot_id","status","summary"],"properties":{"slot_id":{"type":"string"},"status":{"type":"string"},"summary":{"type":"string"},"patch":{"type":"object"},"risks":{"type":"array","items":{"type":"string"}},"requested_tools":{"type":"array","items":{"type":"string"}}}}

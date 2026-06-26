@@ -1,0 +1,1 @@
+{"title":"LiveHarness Ask Response","type":"object","properties":{"answer_type":{"type":"string"},"summary":{"type":"string"},"content":{"type":"object"}}}

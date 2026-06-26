@@ -1,0 +1,80 @@
+name: LiveLLM Rapid Game
+
+on:
+  workflow_dispatch:
+    inputs:
+      game_prompt:
+        description: "Game prompt"
+        required: false
+        default: "Build a Three.js open-world exploration game with procedural terrain, keyboard movement, camera follow, fog, sun lighting, scattered trees, rocks, collectibles, HUD objective, restart behavior, launcher integration, and deterministic tests."
+      model_profile:
+        description: "Model profile label for ledgers"
+        required: false
+        default: "bootstrap"
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: livellm-rapid-game
+  cancel-in-progress: false
+
+jobs:
+  rapid-game:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Run LiveHarness rapid game
+        env:
+          GAME_PROMPT: ${{ github.event.inputs.game_prompt }}
+          MODEL_PROFILE: ${{ github.event.inputs.model_profile }}
+        run: |
+          cd LiveHarnessV.01
+          PYTHONPATH=tools python -m live_harness.orchestration_runner
+
+      - name: Run LiveHarness deterministic tools
+        run: |
+          cd LiveHarnessV.01
+          PYTHONPATH=tools python -m live_harness.run_tools --output runs/final-tool-results.json
+
+      - name: Commit generated rapid game
+        run: |
+          git config user.name "livellm-rapid-game"
+          git config user.email "livellm-rapid-game@users.noreply.github.com"
+          git add LiveHarnessV.01/ docs/ generated/ src/
+          if git diff --cached --quiet; then
+            echo "No rapid game changes to commit."
+            exit 0
+          fi
+          git commit -m "chore: generate LiveLLM rapid game"
+          git push
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,183 @@
+name: LiveHarness Massive Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      prompt_file:
+        description: "Repo-relative prompt file. Leave blank for newest LiveHarnessV.01/prompt-inbox/*.md"
+        required: false
+        default: ""
+      max_workers:
+        description: "Maximum bounded swarm workers"
+        required: false
+        default: "16"
+      max_loops:
+        description: "Maximum internal build/repair loops"
+        required: false
+        default: "4"
+  push:
+    branches:
+      - main
+    paths:
+      - "LiveHarnessV.01/prompt-inbox/**"
+      - "LiveHarnessV.01/stages/**"
+      - "LiveHarnessV.01/stage-profiles/**"
+      - ".github/workflows/LiveHarness-Massive-Build.yml"
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: kitbuilder03-massive-build
+  cancel-in-progress: false
+
+env:
+  NVIDIA_MODEL: nvidia/nemotron-3-ultra-550b-a55b
+  LIVEHARNESS_MODE: kit-builder
+  LIVEHARNESS_USE_MODEL_SWARM: "false"
+
+jobs:
+  massive-build:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Run massive sandbox build loop
+        shell: bash
+        env:
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          PROMPT_INPUT: ${{ github.event.inputs.prompt_file }}
+          MAX_WORKERS_INPUT: ${{ github.event.inputs.max_workers }}
+          MAX_LOOPS_INPUT: ${{ github.event.inputs.max_loops }}
+        run: |
+          set -euo pipefail
+          mkdir -p LiveHarnessV.01/runs docs generated src
+
+          if [ -n "${PROMPT_INPUT:-}" ] && [ -f "$PROMPT_INPUT" ]; then
+            PROMPT_FILE="$PROMPT_INPUT"
+          else
+            PROMPT_FILE="$(find LiveHarnessV.01/prompt-inbox -name '*.md' -type f | sort | tail -n 1 || true)"
+          fi
+
+          if [ -z "${PROMPT_FILE:-}" ]; then
+            echo "No prompt file found." >&2
+            exit 1
+          fi
+
+          MAX_WORKERS="${MAX_WORKERS_INPUT:-16}"
+          MAX_LOOPS="${MAX_LOOPS_INPUT:-4}"
+          RUN_ID="$(date -u +%Y-%m-%dT%H-%M-%SZ)-massive-build-$(basename "$PROMPT_FILE" .md)"
+          RUN_DIR="LiveHarnessV.01/runs/$RUN_ID"
+          mkdir -p "$RUN_DIR/input" "$RUN_DIR/logs" "$RUN_DIR/status" "$RUN_DIR/validation" "$RUN_DIR/swarm" "$RUN_DIR/write-sets" "$RUN_DIR/self-alignment" "$RUN_DIR/loops" "$RUN_DIR/sandbox"
+          cp "$PROMPT_FILE" "$RUN_DIR/input/prompt.md"
+          printf '%s\n' "$PROMPT_FILE" > "$RUN_DIR/input/prompt-path.txt"
+
+          echo "# LiveHarness Massive Build" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Run ID: \`$RUN_ID\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Prompt: \`$PROMPT_FILE\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Max workers: \`$MAX_WORKERS\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Max loops: \`$MAX_LOOPS\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Single final commit: \`true\`" >> "$GITHUB_STEP_SUMMARY"
+
+          set +e
+          (cd LiveHarnessV.01 && \
+            LIVEHARNESS_RUN_ID="$RUN_ID" \
+            LIVEHARNESS_RUN_DIR="runs/$RUN_ID" \
+            LIVEHARNESS_MODE="$LIVEHARNESS_MODE" \
+            LIVEHARNESS_USE_MODEL_SWARM="$LIVEHARNESS_USE_MODEL_SWARM" \
+            NVIDIA_API_KEY="${NVIDIA_API_KEY:-}" \
+            NVIDIA_MODEL="$NVIDIA_MODEL" \
+            PYTHONPATH=tools \
+            python -m live_harness.massive_build_loop \
+              --run-id "$RUN_ID" \
+              --run-dir "runs/$RUN_ID" \
+              --prompt-file "$PROMPT_FILE" \
+              --max-workers "$MAX_WORKERS" \
+              --max-loops "$MAX_LOOPS" \
+              --max-parallel "$MAX_WORKERS" \
+              --single-commit-mode true) \
+            > "$RUN_DIR/logs/massive-build.stdout.log" \
+            2> "$RUN_DIR/logs/massive-build.stderr.log"
+          BUILD_EXIT=$?
+          set -e
+
+          python - <<PY
+          import json, pathlib
+          run_dir = pathlib.Path("$RUN_DIR")
+          run_dir.joinpath("status").mkdir(parents=True, exist_ok=True)
+          run_dir.joinpath("status/exit-codes.json").write_text(json.dumps({
+            "build_exit": $BUILD_EXIT,
+            "single_commit_mode": True,
+            "prompt_file": "$PROMPT_FILE",
+            "run_id": "$RUN_ID"
+          }, indent=2) + "\n")
+          if not run_dir.joinpath("status/final-status.json").exists():
+            run_dir.joinpath("status/final-status.json").write_text(json.dumps({
+              "schema": "liveharness.final-status.v1",
+              "run_id": "$RUN_ID",
+              "status": "infrastructure_failure" if $BUILD_EXIT else "success",
+              "single_commit_mode": True
+            }, indent=2) + "\n")
+          PY
+
+          {
+            echo "# LiveHarness Massive Build"
+            echo ""
+            echo "- Run ID: $RUN_ID"
+            echo "- Prompt: $PROMPT_FILE"
+            echo "- Build exit: $BUILD_EXIT"
+            echo "- Single final commit: true"
+          } > "$RUN_DIR/logs/workflow-summary.md"
+
+          echo "- Build exit: \`$BUILD_EXIT\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Logs: \`$RUN_DIR/logs/\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "$BUILD_EXIT" > LiveHarnessV.01/runs/.massive-build-exit
+          exit 0
+
+      - name: Commit final build artifacts once
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p docs generated src LiveHarnessV.01/archive
+          git config user.name "liveharness-massive-build"
+          git config user.email "liveharness-massive-build@users.noreply.github.com"
+          git add LiveHarnessV.01/runs/ LiveHarnessV.01/ledgers/ LiveHarnessV.01/state/ LiveHarnessV.01/archive/ docs/ generated/ src/
+          if git diff --cached --quiet; then
+            echo "No final artifacts to commit."
+            exit 0
+          fi
+          RUN_ID="$(find LiveHarnessV.01/runs -maxdepth 1 -type d -name '*massive-build*' | sort | tail -n 1 | xargs -n1 basename || true)"
+          git commit -m "chore: record LiveHarness massive build ${RUN_ID:-run}"
+          git push
+
+      - name: Configure GitHub Pages
+        if: always()
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        if: always()
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+      - name: Deploy to GitHub Pages
+        if: always()
+        id: deploy
+        uses: actions/deploy-pages@v4

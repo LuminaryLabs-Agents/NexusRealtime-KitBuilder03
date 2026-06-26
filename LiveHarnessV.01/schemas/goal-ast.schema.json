@@ -1,0 +1,1 @@
+{"title":"LiveHarness Goal AST","type":"object","required":["schema","goal_id","root","children"],"properties":{"schema":{"type":"string"},"goal_id":{"type":"string"},"root":{"type":"object"},"children":{"type":"array","items":{"type":"object"}}}}

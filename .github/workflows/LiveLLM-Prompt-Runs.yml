@@ -65,19 +65,7 @@ jobs:
             env | sort > "$RUN_DIR/logs/env.txt"
             PROMPT_TEXT="$(cat "$PROMPT_FILE")"
 
-            python - "$RUN_DIR/input/trigger.json" "$PROMPT_FILE" <<'PY'
-          import json, os, sys
-          path, prompt_file = sys.argv[1], sys.argv[2]
-          data = {
-            "event": os.environ.get("GITHUB_EVENT_NAME"),
-            "ref": os.environ.get("GITHUB_REF"),
-            "sha": os.environ.get("GITHUB_SHA"),
-            "workflow": "LiveLLM Prompt Runs",
-            "github_run_id": os.environ.get("GITHUB_RUN_ID"),
-            "prompt_file": prompt_file,
-          }
-          open(path, "w", encoding="utf-8").write(json.dumps(data, indent=2) + "\n")
-          PY
+            printf '{"event":"%s","ref":"%s","sha":"%s","workflow":"LiveLLM Prompt Runs","github_run_id":"%s","prompt_file":"%s"}\n' "$GITHUB_EVENT_NAME" "$GITHUB_REF" "$GITHUB_SHA" "$GITHUB_RUN_ID" "$PROMPT_FILE" > "$RUN_DIR/input/trigger.json"
 
             echo "## Prompt: $BASENAME" >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
@@ -101,14 +89,7 @@ jobs:
               OVERALL=1
             fi
 
-            python - "$RUN_DIR/status/exit-codes.json" "$HARNESS_EXIT" "$TOOLS_EXIT" "$OVERALL_OK" <<'PY'
-          import json, sys
-          path = sys.argv[1]
-          harness_exit = int(sys.argv[2])
-          tools_exit = int(sys.argv[3])
-          overall_ok = sys.argv[4].lower() == "true"
-          open(path, "w", encoding="utf-8").write(json.dumps({"harness_exit": harness_exit, "tools_exit": tools_exit, "overall_ok": overall_ok}, indent=2) + "\n")
-          PY
+            printf '{"harness_exit":%s,"tools_exit":%s,"overall_ok":%s}\n' "$HARNESS_EXIT" "$TOOLS_EXIT" "$OVERALL_OK" > "$RUN_DIR/status/exit-codes.json"
 
             if [ "$OVERALL_OK" = true ]; then
               printf '{"status":"success","run_id":"%s"}\n' "$RUN_ID" > "$RUN_DIR/status/success.json"

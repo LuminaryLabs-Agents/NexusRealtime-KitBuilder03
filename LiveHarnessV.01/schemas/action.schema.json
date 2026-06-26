@@ -1,0 +1,1 @@
+{"title":"LiveHarness Action","type":"object","required":["type"],"properties":{"type":{"type":"string"},"target":{"type":"string"},"question":{"type":"string"},"payload":{"type":"object"}}}

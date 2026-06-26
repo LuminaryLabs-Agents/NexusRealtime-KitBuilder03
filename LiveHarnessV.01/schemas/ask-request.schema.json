@@ -1,0 +1,1 @@
+{"title":"LiveHarness Ask Request","type":"object","required":["ask_type","source_agent","target"],"properties":{"ask_type":{"type":"string"},"source_agent":{"type":"string"},"target":{"type":"string"},"context":{"type":"object"}}}

@@ -1,0 +1,45 @@
+{
+  "id": "self-alignment-domain-kit",
+  "domain": "self-alignment",
+  "parentDomain": "liveharness-stage-runner",
+  "scope": "domain",
+  "extendsBase": "DomainServiceKit",
+  "ownsLoop": true,
+  "ownedState": [
+    "masterInterpretation",
+    "goalAst",
+    "activePlan",
+    "thinkList",
+    "turnLedger",
+    "driftLedger",
+    "alignmentResults"
+  ],
+  "commands": [
+    "interpretation.create.request",
+    "turn.align.request",
+    "turn.selfReview.request",
+    "stage.advance.request",
+    "stage.loopback.request"
+  ],
+  "events": [
+    "interpretation.locked",
+    "turn.aligned",
+    "drift.detected",
+    "revision.required",
+    "stage.advanceRecommended",
+    "stage.loopbackRecommended"
+  ],
+  "idempotency": {
+    "ledgers": ["turnLedger", "alignmentLedger"],
+    "keys": ["runId", "stageId", "turnId", "interpretationVersion", "actionId"]
+  },
+  "invariants": [
+    "Every turn references a locked master interpretation.",
+    "Every boundary action must be gateable.",
+    "Every stage advance must have a final self-review and deterministic gate result.",
+    "No private control-plane metadata may appear in public product output."
+  ],
+  "snapshotPolicy": "serializable",
+  "resetPolicy": "run-scoped",
+  "debugTrace": "turns, active plan, monitor log, drift ledger, final self-review"
+}

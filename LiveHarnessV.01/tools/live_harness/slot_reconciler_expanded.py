@@ -30,6 +30,19 @@ def _collect_slots(run_dir: Path) -> list[dict[str, Any]]:
     return out
 
 
+def _append_repo_integration_file(files: list[dict[str, str]], candidate_id: str, run_dir: Path) -> None:
+    integration = read_json(run_dir / "intake" / "fused" / "integration-plan.json", {})
+    payload = {
+        "mode": integration.get("mode", "reference-plus-local-fallback"),
+        "references": integration.get("reference_patterns", []),
+        "localFallbacks": integration.get("local_fallbacks", []),
+        "validationRules": integration.get("validation_rules", []),
+        "trustedAsInstruction": False
+    }
+    content = "export const repoCapabilities = " + json.dumps(payload, indent=2) + ";\n"
+    files.append({"path": f"docs/games/{candidate_id}/src/integration/repoCapabilities.js", "kind": "repo_integration", "content": content})
+
+
 def reconcile(run_dir: Path, run_id: str) -> dict[str, Any]:
     slots = _collect_slots(run_dir)
     master = read_json(run_dir / "input" / "master-interpretation.json", {})
@@ -38,7 +51,8 @@ def reconcile(run_dir: Path, run_id: str) -> dict[str, Any]:
     summary = sanitize_public_text(str(master.get("canonical_goal") or "Build a large voxel world that proves domain-service boundaries."))
     candidate_id = f"{slugify(run_id)}-voxel-dsk"
     files = _files(candidate_id, title, summary)
-    write_set = {"schema":"liveharness.reconciled-write-set.v1","write_set_id":f"write-set:{candidate_id}","candidate_id":candidate_id,"summary":summary,"title":title,"files":files,"source_slots":[str(slot.get("slot_id")) for slot in slots],"expected_gates":["path-filter","public-output-membrane","module-graph-filter","dsk-boundary-filter","renderer-boundary-filter","gamehost-filter","syntax-filter"],"created_at":utc_id()}
+    _append_repo_integration_file(files, candidate_id, run_dir)
+    write_set = {"schema":"liveharness.reconciled-write-set.v1","write_set_id":f"write-set:{candidate_id}","candidate_id":candidate_id,"summary":summary,"title":title,"files":files,"source_slots":[str(slot.get("slot_id")) for slot in slots],"expected_gates":["path-filter","public-output-membrane","repo_capability_usage_filter","module-graph-filter","dsk-boundary-filter","renderer-boundary-filter","gamehost-filter","syntax-filter"],"created_at":utc_id()}
     write_json(run_dir / "write-sets" / "proposed" / "reconciled-write-set.json", write_set)
     write_json(run_dir / "write-sets" / "final-write-set.json", write_set)
     ledger("artifact-ledger.jsonl", {"time": utc_id(), "event": "write_set.reconciled", "candidate_id": candidate_id, "files": len(files)})

@@ -47,6 +47,17 @@ class ProductBrief:
     raw_has_control_terms: bool
 
     def to_dict(self) -> dict[str, Any]:
+        """Public-safe payload. Safe to embed in docs/games and generated apps."""
+        return {
+            "mode": self.mode,
+            "public_title": self.public_title,
+            "public_goal": self.public_goal,
+            "public_summary": self.public_summary,
+            "product_features": self.product_features,
+        }
+
+    def to_full_dict(self) -> dict[str, Any]:
+        """Full harness-only payload. Do not embed in public app files."""
         return asdict(self)
 
 

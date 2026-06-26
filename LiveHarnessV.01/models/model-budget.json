@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "limits": {
+    "max_instant_calls_per_run": 80,
+    "max_answer_calls_per_run": 30,
+    "max_process_calls_per_run": 30,
+    "max_orchestrator_calls_per_run": 8,
+    "max_thinking_calls_per_run": 3,
+    "max_total_model_calls_per_run": 100
+  },
+  "escalation_policy": {
+    "malformed_json_retries_before_escalation": 2,
+    "tool_failures_before_thinking": 2,
+    "blocked_goal_before_orchestrator": true
+  }
+}

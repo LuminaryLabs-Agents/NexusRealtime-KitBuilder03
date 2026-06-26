@@ -3,6 +3,7 @@
   "tools": [
     {"id": "js_syntax_check", "type": "python", "module": "live_harness.run_tools", "function": "js_syntax", "required": true},
     {"id": "html_smoke_check", "type": "python", "module": "live_harness.run_tools", "function": "html_smoke", "required": true},
-    {"id": "launcher_manifest_check", "type": "python", "module": "live_harness.run_tools", "function": "launcher_manifest", "required": true}
+    {"id": "launcher_manifest_check", "type": "python", "module": "live_harness.run_tools", "function": "launcher_manifest", "required": true},
+    {"id": "public_output_membrane_check", "type": "python", "module": "live_harness.public_output_check", "function": "scan_docs", "required": true}
   ]
 }

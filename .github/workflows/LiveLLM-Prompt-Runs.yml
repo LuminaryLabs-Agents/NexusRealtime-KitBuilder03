@@ -9,6 +9,11 @@ on:
       - "LiveHarnessV.01/prompt-inbox/**"
       - ".github/workflows/LiveLLM-Prompt-Runs.yml"
 
+env:
+  NVIDIA_SECRET_NAME: NVIDIA_API_KEY
+  NVIDIA_MODEL: nvidia/nemotron-3-ultra-550b-a55b
+  LIVEHARNESS_MODE: kit-builder
+
 permissions:
   contents: write
   pages: write
@@ -40,6 +45,8 @@ jobs:
 
       - name: Run all prompt files with full logging
         shell: bash
+        env:
+          NVIDIA_API_KEY: ${{ secrets[env.NVIDIA_SECRET_NAME] }}
         run: |
           set -euo pipefail
           mkdir -p LiveHarnessV.01/runs
@@ -62,18 +69,26 @@ jobs:
 
             cp "$PROMPT_FILE" "$RUN_DIR/input/prompt.md"
             printf '%s\n' "$PROMPT_FILE" > "$RUN_DIR/input/prompt-path.txt"
-            env | sort > "$RUN_DIR/logs/env.txt"
+            env | sort | grep -E -v 'TOKEN|SECRET|KEY|PASSWORD|NVIDIA_API_KEY' > "$RUN_DIR/logs/env.txt"
             PROMPT_TEXT="$(cat "$PROMPT_FILE")"
+            if [ -n "${NVIDIA_API_KEY:-}" ]; then
+              NVIDIA_KEY_PRESENT=true
+            else
+              NVIDIA_KEY_PRESENT=false
+            fi
 
-            printf '{"event":"%s","ref":"%s","sha":"%s","workflow":"LiveLLM Prompt Runs","github_run_id":"%s","prompt_file":"%s"}\n' "$GITHUB_EVENT_NAME" "$GITHUB_REF" "$GITHUB_SHA" "$GITHUB_RUN_ID" "$PROMPT_FILE" > "$RUN_DIR/input/trigger.json"
+            printf '{"event":"%s","ref":"%s","sha":"%s","workflow":"LiveLLM Prompt Runs","github_run_id":"%s","prompt_file":"%s","mode":"%s","nvidia_key_present":%s,"nvidia_model":"%s"}\n' "$GITHUB_EVENT_NAME" "$GITHUB_REF" "$GITHUB_SHA" "$GITHUB_RUN_ID" "$PROMPT_FILE" "$LIVEHARNESS_MODE" "$NVIDIA_KEY_PRESENT" "$NVIDIA_MODEL" > "$RUN_DIR/input/trigger.json"
 
             echo "## Prompt: $BASENAME" >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
             echo "- Run ID: \`$RUN_ID\`" >> "$GITHUB_STEP_SUMMARY"
             echo "- Prompt file: \`$PROMPT_FILE\`" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Mode: \`$LIVEHARNESS_MODE\`" >> "$GITHUB_STEP_SUMMARY"
+            echo "- NVIDIA key present: \`$NVIDIA_KEY_PRESENT\`" >> "$GITHUB_STEP_SUMMARY"
+            echo "- NVIDIA model: \`$NVIDIA_MODEL\`" >> "$GITHUB_STEP_SUMMARY"
 
             set +e
-            (cd LiveHarnessV.01 && LIVEHARNESS_RUN_ID="$RUN_ID" LIVEHARNESS_RUN_DIR="runs/$RUN_ID" GAME_PROMPT="$PROMPT_TEXT" PYTHONPATH=tools python -m live_harness.orchestration_runner) > "$RUN_DIR/logs/orchestration.stdout.log" 2> "$RUN_DIR/logs/orchestration.stderr.log"
+            (cd LiveHarnessV.01 && LIVEHARNESS_RUN_ID="$RUN_ID" LIVEHARNESS_RUN_DIR="runs/$RUN_ID" LIVEHARNESS_MODE="$LIVEHARNESS_MODE" NVIDIA_API_KEY="$NVIDIA_API_KEY" NVIDIA_MODEL="$NVIDIA_MODEL" GAME_PROMPT="$PROMPT_TEXT" PYTHONPATH=tools python -m live_harness.orchestration_runner) > "$RUN_DIR/logs/orchestration.stdout.log" 2> "$RUN_DIR/logs/orchestration.stderr.log"
             HARNESS_EXIT=$?
             set -e
 
@@ -89,7 +104,7 @@ jobs:
               OVERALL=1
             fi
 
-            printf '{"harness_exit":%s,"tools_exit":%s,"overall_ok":%s}\n' "$HARNESS_EXIT" "$TOOLS_EXIT" "$OVERALL_OK" > "$RUN_DIR/status/exit-codes.json"
+            printf '{"harness_exit":%s,"tools_exit":%s,"overall_ok":%s,"mode":"%s","nvidia_key_present":%s,"nvidia_model":"%s"}\n' "$HARNESS_EXIT" "$TOOLS_EXIT" "$OVERALL_OK" "$LIVEHARNESS_MODE" "$NVIDIA_KEY_PRESENT" "$NVIDIA_MODEL" > "$RUN_DIR/status/exit-codes.json"
 
             if [ "$OVERALL_OK" = true ]; then
               printf '{"status":"success","run_id":"%s"}\n' "$RUN_ID" > "$RUN_DIR/status/success.json"
@@ -102,6 +117,9 @@ jobs:
               echo ""
               echo "- Prompt: $PROMPT_FILE"
               echo "- Run ID: $RUN_ID"
+              echo "- Mode: $LIVEHARNESS_MODE"
+              echo "- NVIDIA key present: $NVIDIA_KEY_PRESENT"
+              echo "- NVIDIA model: $NVIDIA_MODEL"
               echo "- Harness exit: $HARNESS_EXIT"
               echo "- Tools exit: $TOOLS_EXIT"
               echo "- Overall OK: $OVERALL_OK"

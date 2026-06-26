@@ -1,0 +1,1 @@
+{"title":"LiveHarness Context Source","type":"object","required":["repos"],"properties":{"repos":{"type":"array","items":{"type":"string"}},"queries":{"type":"array","items":{"type":"string"}}}}

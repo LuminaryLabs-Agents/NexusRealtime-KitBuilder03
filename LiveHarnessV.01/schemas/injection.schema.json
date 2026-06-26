@@ -1,0 +1,1 @@
+{"title":"LiveHarness Injection","type":"object","required":["id","source_action","target","content"],"properties":{"id":{"type":"string"},"source_action":{"type":"string"},"target":{"type":"string"},"expires_after_turns":{"type":"integer"},"content":{"type":"object"}}}

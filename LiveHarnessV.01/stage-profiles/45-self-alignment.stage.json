@@ -1,0 +1,54 @@
+{
+  "schema": "liveharness.stage-profile.v1",
+  "stage_id": "45-self-alignment",
+  "label": "Visible Turn Self-Alignment",
+  "applies_to": ["game_experiment", "tool_app", "kit-builder", "minecraft-three"],
+  "runner": {
+    "module": "live_harness.turn_self_alignment",
+    "args": ["--phase", "pre_tools"]
+  },
+  "input_requirements": [
+    "input/master-interpretation.json",
+    "input/goal-ast.json",
+    "run-summary.json"
+  ],
+  "required_outputs": [
+    "turns/turn-001.json",
+    "self-alignment/final-self-review.json",
+    "monitor/active-plan.md"
+  ],
+  "allowed_actions": [
+    "THINK",
+    "ALIGN_GOAL",
+    "PLAN",
+    "READ_ARTIFACT",
+    "WRITE_SET_PROPOSE",
+    "ASK_GATE",
+    "APPLY_WRITE_SET",
+    "RUN_TOOL",
+    "SELF_REVIEW",
+    "INTERPRETATION_PATCH",
+    "FINAL_REPORT",
+    "LOOPBACK"
+  ],
+  "turn_policy": {
+    "max_consecutive_think_actions": 3,
+    "max_alignment_rounds_before_action": 2,
+    "must_act_after_plan": true,
+    "must_validate_after_write": true,
+    "must_self_review_before_stage_advance": true
+  },
+  "gates": [
+    "public_output_membrane_check",
+    "js_syntax_check",
+    "launcher_manifest_check"
+  ],
+  "advance": {
+    "on_pass": "50-test-review"
+  },
+  "loopback": {
+    "on_public_output_bleed": "10-product-brief",
+    "on_renderer_owns_gameplay": "30-domain-map",
+    "on_missing_domain_trace": "40-prototype"
+  }
+}

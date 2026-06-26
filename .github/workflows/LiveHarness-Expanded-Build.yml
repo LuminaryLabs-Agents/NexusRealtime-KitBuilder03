@@ -1,0 +1,95 @@
+name: LiveHarness Expanded Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      prompt_file:
+        description: "Repo-relative prompt file"
+        required: false
+        default: "LiveHarnessV.01/expanded-prompts/001-full-voxel-survival.md"
+  push:
+    branches:
+      - main
+    paths:
+      - "LiveHarnessV.01/expanded-prompts/**"
+      - ".github/workflows/LiveHarness-Expanded-Build.yml"
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: kitbuilder03-expanded-build
+  cancel-in-progress: false
+
+env:
+  NVIDIA_MODEL: nvidia/nemotron-3-ultra-550b-a55b
+  LIVEHARNESS_MODE: kit-builder
+  LIVEHARNESS_USE_MODEL_SWARM: "false"
+
+jobs:
+  expanded-build:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Run expanded build loop
+        shell: bash
+        env:
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          PROMPT_INPUT: ${{ github.event.inputs.prompt_file }}
+        run: |
+          set -euo pipefail
+          PROMPT_FILE="${PROMPT_INPUT:-LiveHarnessV.01/expanded-prompts/001-full-voxel-survival.md}"
+          if [ ! -f "$PROMPT_FILE" ]; then
+            PROMPT_FILE="$(find LiveHarnessV.01/expanded-prompts -name '*.md' -type f | sort | tail -n 1)"
+          fi
+          RUN_ID="$(date -u +%Y-%m-%dT%H-%M-%SZ)-expanded-build-$(basename "$PROMPT_FILE" .md)"
+          RUN_DIR="LiveHarnessV.01/runs/$RUN_ID"
+          mkdir -p "$RUN_DIR/input" "$RUN_DIR/logs" "$RUN_DIR/status" "$RUN_DIR/validation" "$RUN_DIR/swarm" "$RUN_DIR/write-sets" "$RUN_DIR/self-alignment" "$RUN_DIR/loops" "$RUN_DIR/sandbox"
+          cp "$PROMPT_FILE" "$RUN_DIR/input/prompt.md"
+          printf '%s\n' "$PROMPT_FILE" > "$RUN_DIR/input/prompt-path.txt"
+          set +e
+          (cd LiveHarnessV.01 && PYTHONPATH=tools LIVEHARNESS_RUN_ID="$RUN_ID" LIVEHARNESS_RUN_DIR="runs/$RUN_ID" LIVEHARNESS_MODE="$LIVEHARNESS_MODE" LIVEHARNESS_USE_MODEL_SWARM="$LIVEHARNESS_USE_MODEL_SWARM" NVIDIA_API_KEY="${NVIDIA_API_KEY:-}" NVIDIA_MODEL="$NVIDIA_MODEL" python -m live_harness.massive_build_loop_expanded --run-id "$RUN_ID" --run-dir "runs/$RUN_ID" --prompt-file "$PROMPT_FILE" --max-workers 16 --max-loops 4 --max-parallel 16 --single-commit-mode true) > "$RUN_DIR/logs/expanded-build.stdout.log" 2> "$RUN_DIR/logs/expanded-build.stderr.log"
+          BUILD_EXIT=$?
+          set -e
+          python - <<PY
+          import json, pathlib
+          p = pathlib.Path("$RUN_DIR/status/exit-codes.json")
+          p.parent.mkdir(parents=True, exist_ok=True)
+          p.write_text(json.dumps({"build_exit": $BUILD_EXIT, "run_id": "$RUN_ID", "prompt_file": "$PROMPT_FILE", "single_commit_mode": True}, indent=2) + "\n")
+          PY
+          echo "$BUILD_EXIT" > LiveHarnessV.01/runs/.expanded-build-exit
+          exit 0
+      - name: Commit once
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "liveharness-expanded-build"
+          git config user.email "liveharness-expanded-build@users.noreply.github.com"
+          git add LiveHarnessV.01/runs/ LiveHarnessV.01/ledgers/ LiveHarnessV.01/state/ LiveHarnessV.01/archive/ docs/ generated/ src/
+          if git diff --cached --quiet; then
+            echo "No final artifacts to commit."
+            exit 0
+          fi
+          RUN_ID="$(find LiveHarnessV.01/runs -maxdepth 1 -type d -name '*expanded-build*' | sort | tail -n 1 | xargs -n1 basename || true)"
+          git commit -m "chore: record LiveHarness expanded build ${RUN_ID:-run}"
+          git push
+      - uses: actions/configure-pages@v5
+        if: always()
+      - uses: actions/upload-pages-artifact@v3
+        if: always()
+        with:
+          path: docs
+      - uses: actions/deploy-pages@v4
+        if: always()
+        id: deploy

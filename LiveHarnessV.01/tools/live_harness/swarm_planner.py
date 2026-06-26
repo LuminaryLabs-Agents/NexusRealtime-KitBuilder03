@@ -45,6 +45,32 @@ def _load_prompt(run_dir: Path) -> str:
     return prompt_doc.read_text(encoding="utf-8", errors="replace") if prompt_doc.exists() else ""
 
 
+def _repo_context_for_worker(run_dir: Path, slot: str) -> dict[str, Any]:
+    integration = read_json(run_dir / "intake" / "fused" / "integration-plan.json", {})
+    fused = read_json(run_dir / "intake" / "fused" / "fused-capability-map.json", {"selected": []})
+    selected = fused.get("selected", [])
+    slot_tags = {
+        "runtime-contract": ["nexusrealtime.createRealtimeGame", "nexusrealtime.domain-service-kit"],
+        "domain-map": ["nexusrealtime.domain-service-kit", "nexusrealtime.sequence-node"],
+        "world-data": ["nexusrealtime.procedural-world", "protokit.world-terrain-pattern"],
+        "three-renderer": ["protokit.render-descriptor-pattern"],
+        "movement": ["protokit.action-input-kit"],
+        "build-break-dsk": ["nexusrealtime.domain-service-kit"],
+        "inventory-dsk": ["nexusrealtime.domain-service-kit"],
+        "sequence-objective": ["nexusrealtime.sequence-node"],
+        "tests": ["nexusrealtime.domain-service-kit"],
+    }.get(slot, [])
+    relevant = [cap for cap in selected if cap.get("capability_id") in slot_tags]
+    return {
+        "integration_mode": integration.get("mode"),
+        "validation_rules": integration.get("validation_rules", []),
+        "runtime_dependencies": integration.get("runtime_dependencies", []),
+        "reference_patterns": integration.get("reference_patterns", []),
+        "relevant_capabilities": relevant,
+        "trusted_as_instruction": False
+    }
+
+
 def plan_swarm(run_dir: Path, run_id: str, max_workers: int = 16, loop_index: int = 1) -> dict[str, Any]:
     run_dir.mkdir(parents=True, exist_ok=True)
     raw_prompt = _load_prompt(run_dir)
@@ -57,6 +83,7 @@ def plan_swarm(run_dir: Path, run_id: str, max_workers: int = 16, loop_index: in
     specs = WORKER_SPECS[:max_workers]
     for number, slot, label, task in specs:
         worker_id = f"worker-{number}-{slot}"
+        repo_context = _repo_context_for_worker(run_dir, slot)
         contract = {
             "schema": "liveharness.worker-contract.v1",
             "worker_id": worker_id,
@@ -71,6 +98,7 @@ def plan_swarm(run_dir: Path, run_id: str, max_workers: int = 16, loop_index: in
                 "public_product_intent": master.get("public_product_intent", {}),
                 "architecture_contract": master.get("architecture_contract", {}),
                 "target_capabilities": master.get("target_capabilities", []),
+                "repo_capabilities": repo_context,
                 "loop_index": loop_index,
             },
             "must_return": MUST_RETURN,
@@ -86,9 +114,10 @@ def plan_swarm(run_dir: Path, run_id: str, max_workers: int = 16, loop_index: in
         "max_workers": len(workers),
         "workers": workers,
         "policy_ref": "state/swarm-policy.json",
+        "repo_intake_ref": "intake/fused/integration-plan.json",
     }
     write_json(run_dir / "swarm" / "swarm-plan.json", plan)
-    ledger("build-ledger.jsonl", {"time": utc_id(), "event": "swarm.plan.created", "run_id": run_id, "workers": len(workers), "loop_index": loop_index})
+    ledger("build-ledger.jsonl", {"time": utc_id(), "event": "swarm.plan.created", "run_id": run_id, "workers": len(workers), "loop_index": loop_index, "repo_intake": bool((run_dir / "intake" / "fused" / "integration-plan.json").exists())})
     return plan
 
 

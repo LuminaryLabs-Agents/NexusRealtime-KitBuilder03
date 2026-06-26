@@ -1,0 +1,1 @@
+{"title":"LiveHarness Action Menu","type":"object","properties":{"available_actions":{"type":"array","items":{"type":"string"}},"selected_action":{"type":"object"},"default_action":{"type":"string"}}}

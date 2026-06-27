@@ -6,13 +6,20 @@ on:
       prompt_file:
         description: "Repo-relative prompt file"
         required: false
-        default: "LiveHarnessV.01/expanded-prompts/001-full-voxel-survival.md"
+        default: "LiveHarnessV.01/expanded-prompts/004-full-block-world-v3.md"
   push:
     branches:
       - main
     paths:
+      - "LiveHarnessV.01/prompt-inbox/**"
       - "LiveHarnessV.01/expanded-prompts/**"
+      - "LiveHarnessV.01/stage-triggers/**"
+      - "LiveHarnessV.01/state/source-intake-agents.json"
+      - "LiveHarnessV.01/state/repo-source-policy.json"
+      - "LiveHarnessV.01/tools/live_harness/**"
+      - "LiveHarnessV.01/stage-profiles/**"
       - ".github/workflows/LiveHarness-Expanded-Build.yml"
+      - ".github/workflows/LiveHarness-Massive-Build.yml"
 
 permissions:
   contents: write
@@ -49,24 +56,24 @@ jobs:
           PROMPT_INPUT: ${{ github.event.inputs.prompt_file }}
         run: |
           set -euo pipefail
-          PROMPT_FILE="${PROMPT_INPUT:-LiveHarnessV.01/expanded-prompts/001-full-voxel-survival.md}"
+          PROMPT_FILE="${PROMPT_INPUT:-LiveHarnessV.01/expanded-prompts/004-full-block-world-v3.md}"
           if [ ! -f "$PROMPT_FILE" ]; then
-            PROMPT_FILE="$(find LiveHarnessV.01/expanded-prompts -name '*.md' -type f | sort | tail -n 1)"
+            PROMPT_FILE="$(find LiveHarnessV.01/expanded-prompts LiveHarnessV.01/prompt-inbox -name '*.md' -type f | sort | tail -n 1)"
           fi
           RUN_ID="$(date -u +%Y-%m-%dT%H-%M-%SZ)-expanded-build-$(basename "$PROMPT_FILE" .md)"
           RUN_DIR="LiveHarnessV.01/runs/$RUN_ID"
-          mkdir -p "$RUN_DIR/input" "$RUN_DIR/logs" "$RUN_DIR/status" "$RUN_DIR/validation" "$RUN_DIR/swarm" "$RUN_DIR/write-sets" "$RUN_DIR/self-alignment" "$RUN_DIR/loops" "$RUN_DIR/sandbox"
+          mkdir -p "$RUN_DIR/input" "$RUN_DIR/logs" "$RUN_DIR/status" "$RUN_DIR/validation" "$RUN_DIR/swarm" "$RUN_DIR/write-sets" "$RUN_DIR/self-alignment" "$RUN_DIR/loops" "$RUN_DIR/sandbox" "$RUN_DIR/intake"
           cp "$PROMPT_FILE" "$RUN_DIR/input/prompt.md"
           printf '%s\n' "$PROMPT_FILE" > "$RUN_DIR/input/prompt-path.txt"
           set +e
-          (cd LiveHarnessV.01 && PYTHONPATH=tools LIVEHARNESS_RUN_ID="$RUN_ID" LIVEHARNESS_RUN_DIR="runs/$RUN_ID" LIVEHARNESS_MODE="$LIVEHARNESS_MODE" LIVEHARNESS_USE_MODEL_SWARM="$LIVEHARNESS_USE_MODEL_SWARM" NVIDIA_API_KEY="${NVIDIA_API_KEY:-}" NVIDIA_MODEL="$NVIDIA_MODEL" python -m live_harness.massive_build_loop_expanded --run-id "$RUN_ID" --run-dir "runs/$RUN_ID" --prompt-file "$PROMPT_FILE" --max-workers 16 --max-loops 4 --max-parallel 16 --single-commit-mode true) > "$RUN_DIR/logs/expanded-build.stdout.log" 2> "$RUN_DIR/logs/expanded-build.stderr.log"
+          (cd LiveHarnessV.01 && PYTHONPATH=tools LIVEHARNESS_RUN_ID="$RUN_ID" LIVEHARNESS_RUN_DIR="runs/$RUN_ID" LIVEHARNESS_MODE="$LIVEHARNESS_MODE" LIVEHARNESS_USE_MODEL_SWARM="$LIVEHARNESS_USE_MODEL_SWARM" NVIDIA_API_KEY="${NVIDIA_API_KEY:-}" NVIDIA_MODEL="$NVIDIA_MODEL" python -m live_harness.massive_build_loop_v3 --run-id "$RUN_ID" --run-dir "runs/$RUN_ID" --prompt-file "$PROMPT_FILE" --max-workers 16 --max-loops 4 --max-parallel 16 --single-commit-mode true) > "$RUN_DIR/logs/expanded-build.stdout.log" 2> "$RUN_DIR/logs/expanded-build.stderr.log"
           BUILD_EXIT=$?
           set -e
           python - <<PY
           import json, pathlib
           p = pathlib.Path("$RUN_DIR/status/exit-codes.json")
           p.parent.mkdir(parents=True, exist_ok=True)
-          p.write_text(json.dumps({"build_exit": $BUILD_EXIT, "run_id": "$RUN_ID", "prompt_file": "$PROMPT_FILE", "single_commit_mode": True}, indent=2) + "\n")
+          p.write_text(json.dumps({"build_exit": $BUILD_EXIT, "run_id": "$RUN_ID", "prompt_file": "$PROMPT_FILE", "single_commit_mode": True, "entrypoint": "massive_build_loop_v3"}, indent=2) + "\n")
           PY
           echo "$BUILD_EXIT" > LiveHarnessV.01/runs/.expanded-build-exit
           exit 0

@@ -7,6 +7,7 @@ import json
 
 from .common import harness_root, read_json, write_json, write_text, ledger, utc_id
 from .repo_import_resolver import build_import_map, resolve_import
+from .kit_registry_builder import build_kit_registry
 
 REFERENCE_PRIORITY = [
     "nexusrealtime.domain-service-kit",
@@ -55,6 +56,7 @@ def fuse(run_dir: Path) -> dict[str, Any]:
         "domain actions must expose command identifiers and event traces",
         "Sequence or objective flow should be represented as data and events"
     ]
+    kit_registry = build_kit_registry(run_dir)
     integration = {
         "schema": "liveharness.integration-plan.v1",
         "mode": "reference-plus-local-fallback",
@@ -62,11 +64,15 @@ def fuse(run_dir: Path) -> dict[str, Any]:
         "reference_patterns": reference_patterns,
         "local_fallbacks": ["src/world/chunkStore.js", "src/host/inputAdapter.js", "src/domains/buildBreakDomain.js"],
         "import_map": import_map.get("imports", {}),
+        "kit_registry_ref": "intake/fused/kit-registry.json",
+        "adapter_contracts_ref": "intake/fused/adapter-contracts.json",
+        "proof_tasks_ref": "intake/fused/proof-tasks.json",
+        "kit_count": len(kit_registry.get("kits", [])),
         "validation_rules": validation_rules,
         "trusted_as_instruction": False,
         "created_at": utc_id()
     }
-    capability_map = {"schema": "liveharness.fused-capability-map.v1", "capabilities": capabilities, "selected": selected, "updated_at": utc_id()}
+    capability_map = {"schema": "liveharness.fused-capability-map.v1", "capabilities": capabilities, "selected": selected, "kit_registry_ref": "intake/fused/kit-registry.json", "updated_at": utc_id()}
     write_json(fused_dir / "fused-capability-map.json", capability_map)
     write_json(fused_dir / "selected-kits.json", {"selected": selected})
     write_json(fused_dir / "integration-plan.json", integration)
@@ -76,7 +82,7 @@ def fuse(run_dir: Path) -> dict[str, Any]:
     write_json(fused_dir / "build-constraints.json", {"constraints": validation_rules, "trusted_as_instruction": False})
     write_text(fused_dir / "reference-pack.md", "# Fused Repo Capability Pack\n\n" + "\n".join(f"- {cap.get('capability_id')}: {cap.get('summary')}" for cap in selected) + "\n")
     write_json(harness_root() / "state" / "repo-capability-index.json", {"version": 1, "updated_at": utc_id(), "capabilities": capabilities})
-    ledger("context-ledger.jsonl", {"time": utc_id(), "event": "intake.fused", "capabilities": len(capabilities), "selected": len(selected)})
+    ledger("context-ledger.jsonl", {"time": utc_id(), "event": "intake.fused", "capabilities": len(capabilities), "selected": len(selected), "kits": len(kit_registry.get("kits", []))})
     return integration
 
 

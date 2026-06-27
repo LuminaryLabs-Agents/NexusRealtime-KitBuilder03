@@ -32,7 +32,8 @@
         "2026-06-27T10-20-41Z-massive-build-011-massive-voxel-dsk-loop ok=True",
         "2026-06-27T10-23-00Z-massive-build-011-massive-voxel-dsk-loop ok=True",
         "2026-06-27T10-23-26Z-massive-build-011-massive-voxel-dsk-loop ok=True",
-        "2026-06-27T10-56-56Z-massive-build-011-massive-voxel-dsk-loop ok=True"
+        "2026-06-27T10-56-56Z-massive-build-011-massive-voxel-dsk-loop ok=True",
+        "2026-06-27T10-58-31Z-massive-build-011-massive-voxel-dsk-loop ok=True"
       ]
     },
     {
@@ -53,7 +54,8 @@
         "2026-06-27T10-20-41Z-massive-build-011-massive-voxel-dsk-loop ok=True",
         "2026-06-27T10-23-00Z-massive-build-011-massive-voxel-dsk-loop ok=True",
         "2026-06-27T10-23-26Z-massive-build-011-massive-voxel-dsk-loop ok=True",
-        "2026-06-27T10-56-56Z-massive-build-011-massive-voxel-dsk-loop ok=True"
+        "2026-06-27T10-56-56Z-massive-build-011-massive-voxel-dsk-loop ok=True",
+        "2026-06-27T10-58-31Z-massive-build-011-massive-voxel-dsk-loop ok=True"
       ]
     },
     {
@@ -62,6 +64,13 @@
       "introduced_by": "bootstrap",
       "evidence": [
         "docs/games.json is the launcher source of truth"
+      ]
+    },
+    {
+      "id": "launcher.versioned-family-list",
+      "status": "stable",
+      "evidence": [
+        "2026-06-27T10-58-31Z-massive-build-011-massive-voxel-dsk-loop ok=True"
       ]
     },
     {
@@ -82,7 +91,8 @@
         "2026-06-27T10-20-41Z-massive-build-011-massive-voxel-dsk-loop ok=True",
         "2026-06-27T10-23-00Z-massive-build-011-massive-voxel-dsk-loop ok=True",
         "2026-06-27T10-23-26Z-massive-build-011-massive-voxel-dsk-loop ok=True",
-        "2026-06-27T10-56-56Z-massive-build-011-massive-voxel-dsk-loop ok=True"
+        "2026-06-27T10-56-56Z-massive-build-011-massive-voxel-dsk-loop ok=True",
+        "2026-06-27T10-58-31Z-massive-build-011-massive-voxel-dsk-loop ok=True"
       ]
     },
     {
@@ -103,7 +113,8 @@
         "2026-06-27T10-20-41Z-massive-build-011-massive-voxel-dsk-loop ok=True",
         "2026-06-27T10-23-00Z-massive-build-011-massive-voxel-dsk-loop ok=True",
         "2026-06-27T10-23-26Z-massive-build-011-massive-voxel-dsk-loop ok=True",
-        "2026-06-27T10-56-56Z-massive-build-011-massive-voxel-dsk-loop ok=True"
+        "2026-06-27T10-56-56Z-massive-build-011-massive-voxel-dsk-loop ok=True",
+        "2026-06-27T10-58-31Z-massive-build-011-massive-voxel-dsk-loop ok=True"
       ]
     },
     {
@@ -123,7 +134,8 @@
         "2026-06-27T10-20-41Z-massive-build-011-massive-voxel-dsk-loop ok=True",
         "2026-06-27T10-23-00Z-massive-build-011-massive-voxel-dsk-loop ok=True",
         "2026-06-27T10-23-26Z-massive-build-011-massive-voxel-dsk-loop ok=True",
-        "2026-06-27T10-56-56Z-massive-build-011-massive-voxel-dsk-loop ok=True"
+        "2026-06-27T10-56-56Z-massive-build-011-massive-voxel-dsk-loop ok=True",
+        "2026-06-27T10-58-31Z-massive-build-011-massive-voxel-dsk-loop ok=True"
       ]
     },
     {
@@ -144,9 +156,10 @@
         "2026-06-27T10-20-41Z-massive-build-011-massive-voxel-dsk-loop ok=True",
         "2026-06-27T10-23-00Z-massive-build-011-massive-voxel-dsk-loop ok=True",
         "2026-06-27T10-23-26Z-massive-build-011-massive-voxel-dsk-loop ok=True",
-        "2026-06-27T10-56-56Z-massive-build-011-massive-voxel-dsk-loop ok=True"
+        "2026-06-27T10-56-56Z-massive-build-011-massive-voxel-dsk-loop ok=True",
+        "2026-06-27T10-58-31Z-massive-build-011-massive-voxel-dsk-loop ok=True"
       ]
     }
   ],
-  "updated_at": "2026-06-27T10-56-58Z"
+  "updated_at": "2026-06-27T10-58-32Z"
 }

@@ -1,17 +1,21 @@
 {
-  "trigger": "composition-host-expanded-build-v4",
+  "trigger": "kit-registry-composition-host-build",
   "prompt": "LiveHarnessV.01/expanded-prompts/005-composition-host-v4.md",
-  "requested_at": "2026-06-27T00:00:00Z",
-  "intent": "force workflow trigger for bounded HTML shell plus kit composition build",
+  "requested_at": "2026-06-27T12:00:00Z",
+  "intent": "force workflow trigger for kit registry, adapter contract, and proof-task composition build",
   "expected_artifacts": [
     "intake/source-intake-summary.json",
     "intake/fused/integration-plan.json",
+    "intake/fused/kit-registry.json",
+    "intake/fused/adapter-contracts.json",
+    "intake/fused/proof-tasks.json",
     "kit-resolution/kit-resolution-plan.json",
     "swarm/swarm-plan.json",
     "validation/thin_html_filter.json",
     "validation/import_map_filter.json",
     "validation/kit_resolution_filter.json",
     "validation/fallback_compatibility_filter.json",
+    "validation/kit_proof_filter.json",
     "status/final-status.json"
   ]
 }

@@ -1,0 +1,14 @@
+{
+  "title": "LiveHarness Kit Resolution Plan",
+  "type": "object",
+  "required": ["schema", "mode", "composition_order", "required_capabilities", "fallbacks_required"],
+  "properties": {
+    "schema": {"type": "string"},
+    "mode": {"type": "string"},
+    "composition_order": {"type": "array", "items": {"type": "string"}},
+    "required_capabilities": {"type": "array", "items": {"type": "object"}},
+    "fallbacks_required": {"type": "boolean"},
+    "rules": {"type": "array", "items": {"type": "string"}},
+    "created_at": {"type": "string"}
+  }
+}

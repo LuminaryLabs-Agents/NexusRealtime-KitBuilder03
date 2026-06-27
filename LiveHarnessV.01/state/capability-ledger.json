@@ -18,14 +18,16 @@
       "id": "dsk.build-break.trace",
       "status": "candidate",
       "evidence": [
-        "2026-06-26T09-32-18Z-massive-build-011-massive-voxel-dsk-loop ok=True"
+        "2026-06-26T09-32-18Z-massive-build-011-massive-voxel-dsk-loop ok=True",
+        "2026-06-27T09-28-09Z-massive-build-011-massive-voxel-dsk-loop ok=True"
       ]
     },
     {
       "id": "gamehost.debug.surface",
       "status": "candidate",
       "evidence": [
-        "2026-06-26T09-32-18Z-massive-build-011-massive-voxel-dsk-loop ok=True"
+        "2026-06-26T09-32-18Z-massive-build-011-massive-voxel-dsk-loop ok=True",
+        "2026-06-27T09-28-09Z-massive-build-011-massive-voxel-dsk-loop ok=True"
       ]
     },
     {
@@ -40,23 +42,33 @@
       "id": "massive.sandbox.build-loop",
       "status": "candidate",
       "evidence": [
-        "2026-06-26T09-32-18Z-massive-build-011-massive-voxel-dsk-loop ok=True"
+        "2026-06-26T09-32-18Z-massive-build-011-massive-voxel-dsk-loop ok=True",
+        "2026-06-27T09-28-09Z-massive-build-011-massive-voxel-dsk-loop ok=True"
       ]
     },
     {
       "id": "public-output.membrane",
       "status": "stable",
       "evidence": [
-        "2026-06-26T09-32-18Z-massive-build-011-massive-voxel-dsk-loop ok=True"
+        "2026-06-26T09-32-18Z-massive-build-011-massive-voxel-dsk-loop ok=True",
+        "2026-06-27T09-28-09Z-massive-build-011-massive-voxel-dsk-loop ok=True"
+      ]
+    },
+    {
+      "id": "repo-aware.source-intake",
+      "status": "stable",
+      "evidence": [
+        "2026-06-27T09-28-09Z-massive-build-011-massive-voxel-dsk-loop ok=True"
       ]
     },
     {
       "id": "single-final-commit.policy",
       "status": "stable",
       "evidence": [
-        "2026-06-26T09-32-18Z-massive-build-011-massive-voxel-dsk-loop ok=True"
+        "2026-06-26T09-32-18Z-massive-build-011-massive-voxel-dsk-loop ok=True",
+        "2026-06-27T09-28-09Z-massive-build-011-massive-voxel-dsk-loop ok=True"
       ]
     }
   ],
-  "updated_at": "2026-06-26T09-32-20Z"
+  "updated_at": "2026-06-27T09-28-09Z"
 }

@@ -6,14 +6,15 @@
   "candidate_capabilities": [],
   "known_failure_patterns": [],
   "latest_lessons": [
+    "Repo-aware intake should constrain generation before swarm planning.",
     "Single final commit keeps workflow history readable.",
     "Renderer should present state while domains own commands/events.",
     "Sandbox-first writes prevent half-broken public output."
   ],
-  "updated_at": "2026-06-26T09-32-20Z",
+  "updated_at": "2026-06-27T09-28-09Z",
   "latest_massive_build": {
-    "run_id": "2026-06-26T09-32-18Z-massive-build-011-massive-voxel-dsk-loop",
-    "candidate_id": "2026-06-26t09-32-18z-massive-build-011-massive-voxel-dsk-loop-voxel-dsk",
+    "run_id": "2026-06-27T09-28-09Z-massive-build-011-massive-voxel-dsk-loop",
+    "candidate_id": "2026-06-27t09-28-09z-massive-build-011-massive-voxel-dsk-loop-voxel-dsk",
     "ok": true
   }
 }

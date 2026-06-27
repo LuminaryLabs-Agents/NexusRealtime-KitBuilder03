@@ -1,12 +1,20 @@
 ---
 mode: kit-builder
-public_title: Full Block World Domain Lab V3
-public_goal: Build a full browser playable block-world survival-style testbed with repo-aware intake, top-of-world player spawn, infinite procedural world loading, HUD, inventory, input test surface, and repeat-safe domain service boundaries.
+public_title: Composition Host Block World V4
+public_goal: Build a browser playable block-world domain lab with repo-aware intake, bounded HTML shell, import map, boot module, NexusRealtime and ProtoKit composition surfaces, local fallbacks, top-of-world spawn, world loading, HUD, inventory, input surface, and GameHost integration diagnostics.
 ---
 
 # Product Requirements
 
 Create a full first-pass block-world game that works immediately in the browser and is not just a small terrain demo.
+
+Required shell and composition:
+
+- index.html must be a thin bounded host shell
+- include an import map for NexusRealtime core, ProtoKits action input, and Three.js
+- load only src/boot.js as the boot module
+- no gameplay logic in HTML
+- GameHost exposes integration mode, selected providers, and fallback notes
 
 Required play surface:
 
@@ -19,8 +27,7 @@ Required play surface:
 - Input testing surface that shows keys, mouse lock state, and last command
 - WASD movement, mouse look, numbered inventory selection, left click clear block, right click place block, F toggle fly
 - Place and clear actions routed through domain commands with command IDs
-- GameHost state exposing player, world, worldLoader, inventory, domainTrace, events, input, sequence, renderer diagnostics, and debug state
-- Objective sequence for biome exploration and block placement
+- GameHost state exposing player, world, worldLoader, inventory, domainTrace, events, input, sequence, renderer diagnostics, integration diagnostics, and debug state
 
 Architecture requirements:
 

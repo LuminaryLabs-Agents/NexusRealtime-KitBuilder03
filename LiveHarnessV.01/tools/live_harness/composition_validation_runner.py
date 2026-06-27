@@ -11,6 +11,7 @@ from .thin_html_filter import check as thin_html_check
 from .import_map_filter import check as import_map_check
 from .kit_resolution_filter import check as kit_resolution_check
 from .fallback_compatibility_filter import check as fallback_compatibility_check
+from .kit_proof_filter import check as kit_proof_check
 
 
 def validate_sandbox(run_dir: Path, write_set: dict[str, Any]) -> dict[str, Any]:
@@ -21,7 +22,8 @@ def validate_sandbox(run_dir: Path, write_set: dict[str, Any]) -> dict[str, Any]
         thin_html_check(candidate_dir),
         import_map_check(candidate_dir),
         kit_resolution_check(run_dir, candidate_dir),
-        fallback_compatibility_check(run_dir, candidate_dir)
+        fallback_compatibility_check(run_dir, candidate_dir),
+        kit_proof_check(run_dir, candidate_dir)
     ]
     checks = extra + summary.get("checks", [])
     failed = [check["id"] for check in checks if not check.get("ok")]

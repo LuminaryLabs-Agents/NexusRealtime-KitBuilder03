@@ -40,11 +40,10 @@ def build_voxel_composition_files(candidate_id: str, title: str, summary: str) -
 </body>
 </html>''', "html")
 
-    upsert("src/main.js", 'import "./boot.js";')
-    upsert("src/boot.js", '''import { bootGame } from "./game/bootGame.js";
-import { resolveAllKits } from "./integration/nexusRuntimeAdapter.js";
+    upsert("src/boot.js", '''import { resolveAllKits } from "./integration/nexusRuntimeAdapter.js";
 const kits = await resolveAllKits();
-await bootGame({ kits });''')
+window.__KitResolution = kits.getState ? kits.getState() : { mode: "local-fallback" };
+await import("./game/bootGame.js");''')
     upsert("src/integration/kitResolver.js", '''export async function resolveStaticKit(id, module, fallback) {
   return module ? { id, provider: "remote-kit", module, ok: true, error: null } : { id, provider: "local-fallback", module: fallback, ok: false, error: "module unavailable" };
 }
@@ -66,5 +65,21 @@ export async function resolveAllKits() {
 }''')
     upsert("src/integration/protokitAdapter.js", '''export const protokitAdapter = { mode: "static-import-with-local-fallback" };''')
     upsert("src/runtime/localRuntime.js", '''export function createLocalRuntime() { return { surface: "local runtime fallback" }; }''')
-    upsert("src/game/bootGame.js", '''import "../main.js"; export async function bootGame() {}''')
+    upsert("src/game/bootGame.js", '''import "../main.js";''')
+    upsert("src/host/gameHost.js", '''export function installGameHost(parts) {
+  window.GameHost = {
+    getState() {
+      return { clock: parts.clock.getState(), movement: parts.movement.getState(), inventory: parts.inventory.getState(), buildBreak: parts.buildBreak.getState(), sequence: parts.sequence.getState(), world: parts.chunkStore.getState(), worldLoader: parts.worldLoader.getState(), renderer: parts.renderer.getState(), input: parts.input.getState(), events: parts.events.recent(24), integration: window.__KitResolution || { mode: "local-fallback" }, debug: { candidate: "composition-host-v4", spawn: parts.spawnPoint } };
+    },
+    tick: parts.tick,
+    rebuild: () => { parts.worldLoader.forceRefresh(); parts.renderer.rebuild(true); },
+    issueCommand(command) { if (command.type === "build.place.request") return parts.buildBreak.requestPlace(command.x, command.y, command.z, command.blockId, command.commandId); if (command.type === "block.break.request") return parts.buildBreak.requestBreak(command.x, command.y, command.z, command.commandId); return null; }
+  };
+}''')
+    upsert("README.md", f'''# {title}
+
+{summary}
+
+This generated app uses a bounded HTML shell, an import map, a boot module, and a runtime kit resolution surface. It attempts NexusRealtime and ProtoKit module composition first, keeps local fallback modules available, and records the selected provider state through `window.GameHost.getState().integration`.
+''', "readme")
     return list(by_path.values())

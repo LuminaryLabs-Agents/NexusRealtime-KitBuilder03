@@ -1,0 +1,9 @@
+{
+  "title": "LiveHarness Kit Proof Tasks",
+  "type": "object",
+  "required": ["schema", "tasks"],
+  "properties": {
+    "schema": {"type": "string"},
+    "tasks": {"type": "array", "items": {"type": "object"}}
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "title": "LiveHarness Idea Intake",
+  "type": "object",
+  "required": ["schema", "idea_id", "title", "source_file", "theme_file"],
+  "properties": {
+    "schema": {"type": "string"},
+    "idea_id": {"type": "string"},
+    "title": {"type": "string"},
+    "source_file": {"type": "string"},
+    "theme_file": {"type": "string"},
+    "created_at": {"type": "string"}
+  }
+}

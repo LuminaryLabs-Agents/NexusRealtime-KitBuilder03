@@ -1,0 +1,10 @@
+{
+  "title": "LiveHarness Kit Registry",
+  "type": "object",
+  "required": ["schema", "kits"],
+  "properties": {
+    "schema": {"type": "string"},
+    "kits": {"type": "array", "items": {"type": "object"}},
+    "created_at": {"type": "string"}
+  }
+}

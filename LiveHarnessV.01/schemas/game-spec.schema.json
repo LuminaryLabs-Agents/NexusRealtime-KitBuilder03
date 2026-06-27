@@ -1,0 +1,15 @@
+{
+  "title": "LiveHarness GameSpec",
+  "type": "object",
+  "required": ["schema", "spec_id", "title", "mechanic", "world", "prompt_file"],
+  "properties": {
+    "schema": {"type": "string"},
+    "spec_id": {"type": "string"},
+    "title": {"type": "string"},
+    "theme_ref": {"type": "string"},
+    "mechanic": {"type": "string"},
+    "world": {"type": "string"},
+    "prompt_file": {"type": "string"},
+    "created_at": {"type": "string"}
+  }
+}

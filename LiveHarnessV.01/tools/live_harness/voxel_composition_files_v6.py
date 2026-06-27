@@ -31,7 +31,7 @@ def build_voxel_composition_files_v6(candidate_id: str, title: str, summary: str
 <body>
   <main id="app">
     <canvas id="game"></canvas>
-    <section id="hud"></section>
+    <section id="hud"><header id="status" aria-live="polite">Loading kit-composed world…</header></section>
     <section id="inventory"></section>
     <section id="inputSurface"></section>
     <section id="errorPanel" hidden></section>

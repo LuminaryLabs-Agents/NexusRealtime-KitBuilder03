@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "default_profile": "standard",
+  "profiles": {
+    "low": {"game_count": 3, "expansion_turns": 1, "reconciliation_passes": 1, "goal_alignment_rounds": 1, "build_loops": 1, "max_workers": 8, "max_parallel": 8},
+    "standard": {"game_count": 10, "expansion_turns": 2, "reconciliation_passes": 2, "goal_alignment_rounds": 2, "build_loops": 2, "max_workers": 16, "max_parallel": 16},
+    "high": {"game_count": 10, "expansion_turns": 3, "reconciliation_passes": 3, "goal_alignment_rounds": 3, "build_loops": 3, "max_workers": 20, "max_parallel": 16},
+    "deep": {"game_count": 10, "expansion_turns": 4, "reconciliation_passes": 4, "goal_alignment_rounds": 4, "build_loops": 4, "max_workers": 24, "max_parallel": 16},
+    "extreme": {"game_count": 10, "expansion_turns": 6, "reconciliation_passes": 6, "goal_alignment_rounds": 6, "build_loops": 6, "max_workers": 32, "max_parallel": 16}
+  }
+}

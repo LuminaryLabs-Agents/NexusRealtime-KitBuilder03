@@ -1,0 +1,88 @@
+{
+  "generatedAt": "2026-07-31T05:43:46.339710+00:00",
+  "project": "NexusRealtime-KitBuilder03",
+  "schemaVersion": "repo-image-pack.v1",
+  "settings": {
+    "backgroundColor": "#F4EEDC",
+    "coverResizeMode": "contain-pad-no-crop",
+    "edgeContract": 1,
+    "keyColor": "#FF00FF",
+    "logoPosition": "top-center",
+    "logoSize": 220,
+    "opaqueThreshold": 220.0,
+    "primaryColor": "#0B5D46",
+    "sourceMode": "chroma",
+    "transparentThreshold": 12.0
+  },
+  "sha256": {
+    "cover-1280x640.png": "f8e9c625ebf9635718763bfc1cf1dde08485d1988e4a40515c46ffa08587c28e",
+    "cover-source.png": "f7146dbcd8b5078f15aa1a662ab66422ebcc63d5c34f15951223f7a65a23cf6e",
+    "logo-1024.png": "ef56567ab7149ee713d5550d3c6de7feb267ea1774618168b63c9e369a1d0c82",
+    "logo-256.png": "bad113de54b4983064162c17c91eed757431aa05ba8fa4a9714c9cb339ce8b5f",
+    "logo-512.png": "0a5d07660ab7eae2ba29e252dae00bde2c0155b3d4417a0ab05288aa8506132a",
+    "logo-mask.png": "eaf2dbe800fd018c7777dc04277d637ae73192c8036d45aa191855b1cde78482",
+    "logo-mask.svg": "840cf5683596a22c07129ac16f40f5b75670c86d3dbe3d04e4200b387dba8ec1",
+    "logo-source.png": "127de70931df15aff411b6fcd4c9551d1afcfb05e785fa370ea4dd01090ac730",
+    "logo-transparent.png": "cdd687fa29f096d115cfa700be090fa34b809e9e16a569ce19aed7c847d21faa",
+    "social-card.png": "7f5f9eb1746b9a3e12e9c369b869b3d9aa8c5e2861524d2217cf438501821bfd"
+  },
+  "source": {
+    "coverFilename": "cover-source.png",
+    "coverSha256": "04c68ab45df68866931df7bbf7d50c750aefcbd4718b7bbd8472824506e930f0",
+    "logoFilename": "logo-source.png",
+    "logoSha256": "1fcef0902cfaaec562532cee1227ce3762525e451af2a1682ce2fe4a63fe6642"
+  },
+  "summary": "A bounded NexusRealtime builder harness that turns prompts into validated kit candidates, retained evidence, and selected browser-world proofs.",
+  "tools": {
+    "chromaHelper": {
+      "name": "imagegen/remove_chroma_key.py",
+      "sha256": "3f7b9b14ad5c90f37618bc1c16a039a2076abca12ddc41b3ae470e2b1cad6c0e"
+    },
+    "ffmpeg": "ffmpeg version 8.0.1 Copyright (c) 2000-2025 the FFmpeg developers",
+    "ffprobe": "ffprobe version 8.0.1 Copyright (c) 2007-2025 the FFmpeg developers"
+  },
+  "validation": {
+    "dimensions": {
+      "cover-1280x640.png": [
+        1280,
+        640
+      ],
+      "logo-1024.png": [
+        1024,
+        1024
+      ],
+      "logo-256.png": [
+        256,
+        256
+      ],
+      "logo-512.png": [
+        512,
+        512
+      ],
+      "logo-mask.png": [
+        1254,
+        1254
+      ],
+      "logo-source.png": [
+        1254,
+        1254
+      ],
+      "logo-transparent.png": [
+        1254,
+        1254
+      ],
+      "social-card.png": [
+        1280,
+        640
+      ]
+    },
+    "maskCoverage": 0.27403,
+    "status": "pass",
+    "transparentCornerAlpha": [
+      0,
+      0,
+      0,
+      0
+    ]
+  }
+}
